@@ -35,7 +35,7 @@ public class ScalaLanguage extends AbstractBaseLanguage {
 
   @Override
   public String getVersion() {
-    return "scala-0.2.0";
+    return "scala-0.4.0";
   }
 
   @Override

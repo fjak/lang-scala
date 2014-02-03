@@ -2,7 +2,7 @@ module Scala
 
 signature
   constructors
-                                : VarPlainId -> VarPlainId0
+                                : VAR-PLAIN-ID -> VAR-PLAIN-ID0
                                 : Patterns -> Patterns0
                                 : Type -> Type0
                                 : CompoundType -> CompoundType0
@@ -18,8 +18,8 @@ signature
     TopTmplDef                  : Option(AnnotationSeq) * List(Modifier) * TmplDef -> TopStat
     TopStatSemi                 : TopStat * EOB -> TopStatSemi
     TopStatSemi                 : TopStat * EOF -> TopStatSemi
-    TopStatSemi                 : TopStat * EOL -> TopStatSemi
     TopStatSemi                 : TopStat * SEMI -> TopStatSemi
+    TopStatSemi                 : TopStat * EOL -> TopStatSemi
     CompilationUnit             : List(PackageDeclarationSemi) * List(TopStatSemi) -> CompilationUnit
     EmptyCompilationUnit        : CompilationUnit
     AnnotationSeq               : Annotation * AnnotationSeq -> AnnotationSeq
@@ -34,10 +34,10 @@ signature
     ImportTemplateStat          : Import -> TemplateStat
     DclTemplateStat             : Option(AnnotationSeq) * List(Modifier) * Dcl -> TemplateStat
     DefTemplateStat             : Option(AnnotationSeq) * List(Modifier) * Def -> TemplateStat
+                                : SEMI -> TemplateStatSemi
     TemplateStatSemi            : TemplateStat * EOB -> TemplateStatSemi
     TemplateStatSemi            : TemplateStat * EOL -> TemplateStatSemi
     TemplateStatSemi            : TemplateStat * SEMI -> TemplateStatSemi
-                                : SEMI -> TemplateStatSemi
     LazyDefBlockStat            : List(Annotation) * Def -> BlockStat
     ImplicitDefBlockStat        : List(Annotation) * Def -> BlockStat
     DefBlockStat                : List(Annotation) * Def -> BlockStat
@@ -45,8 +45,8 @@ signature
                                 : Expr -> BlockStat
                                 : Import -> BlockStat
                                 : SEMI -> BlockStatSemi
-    BlockStatSemi               : BlockStat * SEMI -> BlockStatSemi
     BlockStatSemi               : BlockStat * EOB -> BlockStatSemi
+    BlockStatSemi               : BlockStat * SEMI -> BlockStatSemi
     BlockStatSemi               : BlockStat * EOL -> BlockStatSemi
     WildcardResultExpr          : Option(CompoundType0) * Block -> ResultExpr
     SimpleResultExpr            : Id * Option(CompoundType0) * Block -> ResultExpr
@@ -66,8 +66,8 @@ signature
                                 : Generator -> Enumerator
     EnumeratorSemi              : Enumerator * EOB -> EnumeratorSemi
     EnumeratorSemi              : Enumerator * EOP -> EnumeratorSemi
-    EnumeratorSemi              : Enumerator * EOL -> EnumeratorSemi
     EnumeratorSemi              : Enumerator * SEMI -> EnumeratorSemi
+    EnumeratorSemi              : Enumerator * EOL -> EnumeratorSemi
     Guard                       : NoLExpr -> Guard
     Generator                   : Pattern1 * Expr * Option(Guard) -> Generator
     SequenceAscription          : Ascription
@@ -103,17 +103,28 @@ signature
     AccessAssignmentExpr        : NoLExpr * ArgumentExprs * NoLExpr -> NoLExpr
     MatchExpr                   : NoLExpr * List(CaseClause) -> NoLExpr
     PostfixExpr                 : NoLExpr * Id -> NoLExpr
-    InfixExpr                   : NoLExpr * LetterOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * BarOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * CircumflexOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * AmpersandOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * BracketOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * AssignOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * ColonOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * SumOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * MultOp * NoLExpr -> NoLExpr
-    InfixExpr                   : NoLExpr * SpecialOp * NoLExpr -> NoLExpr
-    PrefixExpr                  : Prefix * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * ASSIGN-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-LETTER-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-BAR-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-CIRCUMFLEX-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-AMPERSAND-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-BRACKET-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-CMPR-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-COLON-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-SUM-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-MULT-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * RASSOC-SPECIAL-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * LETTER-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * BAR-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * CIRCUMFLEX-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * AMPERSAND-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * BRACKET-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * CMPR-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * COLON-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * SUM-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * MULT-OP * NoLExpr -> NoLExpr
+    InfixExpr                   : NoLExpr * SPECIAL-OP * NoLExpr -> NoLExpr
+    PrefixExpr                  : PREFIX * NoLExpr -> NoLExpr
     EtaExpansionExpr            : NoLExpr -> NoLExpr
     NewTemplateExpr             : TemplateBody -> NoLExpr
     NewClassExpr                : ClassTemplate -> NoLExpr
@@ -124,8 +135,8 @@ signature
                                 : Literal -> NoLExpr
     WildcardExpr                : NoLExpr
                                 : Path -> Expr
-                                : Literal -> Expr
                                 : BlockExpr -> Expr
+                                : Literal -> Expr
     DesignatorExpr              : Expr * Id -> Expr
     AscriptionExpr              : Expr * Ascription -> Expr
     AssignmentExpr              : Id * Expr -> Expr
@@ -149,17 +160,28 @@ signature
     AccessAssignmentExpr        : Expr * ArgumentExprs * Expr -> Expr
     MatchExpr                   : Expr * List(CaseClause) -> Expr
     PostfixExpr                 : Expr * Id -> Expr
-    InfixExpr                   : Expr * LetterOp * Expr -> Expr
-    InfixExpr                   : Expr * BarOp * Expr -> Expr
-    InfixExpr                   : Expr * CircumflexOp * Expr -> Expr
-    InfixExpr                   : Expr * AmpersandOp * Expr -> Expr
-    InfixExpr                   : Expr * BracketOp * Expr -> Expr
-    InfixExpr                   : Expr * AssignOp * Expr -> Expr
-    InfixExpr                   : Expr * ColonOp * Expr -> Expr
-    InfixExpr                   : Expr * SumOp * Expr -> Expr
-    InfixExpr                   : Expr * MultOp * Expr -> Expr
-    InfixExpr                   : Expr * SpecialOp * Expr -> Expr
-    PrefixExpr                  : Prefix * Expr -> Expr
+    InfixExpr                   : Expr * ASSIGN-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-LETTER-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-BAR-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-CIRCUMFLEX-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-AMPERSAND-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-BRACKET-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-CMPR-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-COLON-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-SUM-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-MULT-OP * Expr -> Expr
+    InfixExpr                   : Expr * RASSOC-SPECIAL-OP * Expr -> Expr
+    InfixExpr                   : Expr * LETTER-OP * Expr -> Expr
+    InfixExpr                   : Expr * BAR-OP * Expr -> Expr
+    InfixExpr                   : Expr * CIRCUMFLEX-OP * Expr -> Expr
+    InfixExpr                   : Expr * AMPERSAND-OP * Expr -> Expr
+    InfixExpr                   : Expr * BRACKET-OP * Expr -> Expr
+    InfixExpr                   : Expr * CMPR-OP * Expr -> Expr
+    InfixExpr                   : Expr * COLON-OP * Expr -> Expr
+    InfixExpr                   : Expr * SUM-OP * Expr -> Expr
+    InfixExpr                   : Expr * MULT-OP * Expr -> Expr
+    InfixExpr                   : Expr * SPECIAL-OP * Expr -> Expr
+    PrefixExpr                  : PREFIX * Expr -> Expr
     EtaExpansionExpr            : Expr -> Expr
     NewTemplateExpr             : TemplateBody -> Expr
     NewClassExpr                : ClassTemplate -> Expr
@@ -169,33 +191,33 @@ signature
     AppExpr                     : Expr * ArgumentExprs -> Expr
     WildcardExpr                : Expr
                                 : String -> EOC
-    Patterns                    : List(Pattern) -> Patterns
                                 : Pattern1 -> Pattern
     DisjunctPattern             : Pattern * Pattern -> Pattern
                                 : Pattern2 -> Pattern1
     WildcardTypedPattern        : Type -> Pattern1
-    TypedPattern                : VarPlainId * Type -> Pattern1
+    TypedPattern                : VAR-PLAIN-ID * Type -> Pattern1
                                 : Pattern3 -> Pattern2
-    PatternBinder               : VarPlainId * Pattern3 -> Pattern2
+    PatternBinder               : VAR-PLAIN-ID * Pattern3 -> Pattern2
                                 : SimplePattern -> Pattern3
-    InfixPattern                : Pattern3 * InfixPatternOp * Pattern3 -> Pattern3
+    InfixPattern                : Pattern3 * INFIX-PATTERN-OP * Pattern3 -> Pattern3
                                 : StableId -> SimplePattern
-    PatternSequence             : StableId * Option(Patterns0) * Option(VarPlainId0) -> SimplePattern
+    PatternSequence             : StableId * Option(Patterns0) * Option(VAR-PLAIN-ID0) -> SimplePattern
     TuplePattern                : Patterns -> SimplePattern
     ConstructorPattern          : StableId * Patterns -> SimplePattern
     LiteralPattern              : Literal -> SimplePattern
     WildcardPattern             : SimplePattern
+    Patterns                    : List(Pattern) -> Patterns
     False                       : BooleanLiteral
     True                        : BooleanLiteral
-    ProcessedString             : ProcessedString -> Literal
-    Null                        : Literal
-    Symbol                      : SymbolLiteral -> Literal
-    String                      : StringLiteral -> Literal
-    Char                        : CharacterLiteral -> Literal
                                 : BooleanLiteral -> Literal
-    Float                       : FloatingPointLiteral -> Literal
-    Int                         : IntegerLiteral -> Literal
-                                : String -> InfixPatternOp
+    ProcessedString             : PROCESSED-STRING -> Literal
+    Null                        : Literal
+    Symbol                      : SYMBOL -> Literal
+    String                      : STRING -> Literal
+    Char                        : CHAR -> Literal
+    Float                       : FLOATING-POINT -> Literal
+    Int                         : INTEGER -> Literal
+                                : String -> INFIX-PATTERN-OP
     WildcardImportSelector      : Id -> ImportSelector
     MappedImportSelector        : Id * Id -> ImportSelector
     ImportSelector              : Id -> ImportSelector
@@ -229,8 +251,8 @@ signature
     TypeParamClause             : List(VariantTypeParam) -> TypeParamClause
     TypeDef                     : Id * Option(TypeParamClause) * Type -> TypeDef
     TypeDcl                     : Id * Option(TypeParamClause) * Option(LowerBoundType) * Option(UpperBoundType) -> TypeDcl
-    WildcardVarDef              : List(Id) * Type -> VarDef
                                 : PatDef -> VarDef
+    WildcardVarDef              : List(Id) * Type -> VarDef
     VarDcl                      : List(Id) * Type -> VarDcl
     PatDef                      : List(Pattern2) * Option(Typed) * Expr -> PatDef
     VarPatDef                   : VarDef -> PatVarDef
@@ -247,8 +269,8 @@ signature
     ParamTyped                  : ParamType -> ParamTyped
     Typed                       : Type -> Typed
     ObjectDef                   : Id * ClassTemplateOpt -> ObjectDef
-    EmptyTraitTemplateOpt       : TraitTemplateOpt
                                 : TemplateBody -> TraitTemplateOpt
+    EmptyTraitTemplateOpt       : TraitTemplateOpt
     TemplateTraitTemplateOpt    : TemplateBody -> TraitTemplateOpt
     TraitTraitTemplateOpt       : TraitTemplate -> TraitTemplateOpt
     TraitDef                    : Id * Option(TypeParamClause) * TraitTemplateOpt -> TraitDef
@@ -264,8 +286,8 @@ signature
     FunDef                      : FunSig * Option(Typed) * Expr -> FunDef
     ThisBlockFunDef             : ParamClauses * ConstrBlock -> FunDef
     ThisExprFunDef              : ParamClauses * ConstrExpr -> FunDef
-    EmptyClassTemplateOpt       : ClassTemplateOpt
                                 : TemplateBody -> ClassTemplateOpt
+    EmptyClassTemplateOpt       : ClassTemplateOpt
     TemplateClassTemplateOpt    : TemplateBody -> ClassTemplateOpt
     ClassClassTemplateOpt       : ClassTemplate -> ClassTemplateOpt
     VarClassParam               : List(Annotation) * List(Modifier) * Id * ParamType * Option(Assignment) -> ClassParam
@@ -322,7 +344,7 @@ signature
     ExistentialClause           : List(ExistentialDclSemi) -> ExistentialClause
     FunctionArgType             : List(ParamType) -> FunctionArgTypes
                                 : InfixType -> FunctionArgTypes
-    InfixType                   : InfixType * PlainId * InfixType -> InfixType
+    InfixType                   : InfixType * PLAIN-ID * InfixType -> InfixType
                                 : CompoundType -> InfixType
     ExistentialType             : InfixType * ExistentialClause -> Type
     FunctionType                : FunctionArgTypes * Type -> Type
@@ -330,8 +352,8 @@ signature
     TypeRefineStat              : TypeDef -> RefineStat
                                 : Dcl -> RefineStat
     RefineStatSemi              : RefineStat * EOB -> RefineStatSemi
-    RefineStatSemi              : RefineStat * EOL -> RefineStatSemi
     RefineStatSemi              : RefineStat * SEMI -> RefineStatSemi
+    RefineStatSemi              : RefineStat * EOL -> RefineStatSemi
     Refinement                  : List(RefineStatSemi) -> Refinement
     With                        : AnnotType -> With
     CompoundType                : AnnotType * List(With) * Option(Refinement) -> CompoundType
@@ -347,42 +369,53 @@ signature
     Type                        : StableId -> SimpleType
     TypeProjection              : SimpleType * Id -> SimpleType
     SingletonType               : Path -> SimpleType
-                                : String -> SymbolLiteral
-                                : String -> ProcessedString
-                                : String -> StringLiteral
-                                : String -> CharacterLiteral
-                                : String -> FloatingPointLiteral
-                                : String -> IntegerLiteral
-    ClassQualifier              : PlainId -> ClassQualifier
-    StableId                    : List(StableIdElem) * PlainId -> StableId
+                                : String -> SYMBOL
+                                : String -> PROCESSED-STRING
+                                : String -> STRING
+                                : String -> CHAR
+                                : String -> FLOATING-POINT
+                                : String -> INTEGER
+    ClassQualifier              : PLAIN-ID -> ClassQualifier
+    StableId                    : List(StableIdElem) * PLAIN-ID -> StableId
                                 : Id -> StableId
     StableSuper                 : Option(ClassQualifier) -> StableIdElem
     StableThis                  : StableIdElem
-                                : PlainId -> StableIdElem
-    Super                       : Option(ClassQualifier) * PlainId -> PathElem
+                                : PLAIN-ID -> StableIdElem
+    Super                       : Option(ClassQualifier) * PLAIN-ID -> PathElem
     This                        : PathElem
-                                : PlainId -> PathElem
+                                : PLAIN-ID -> PathElem
     Path                        : List(PathElem) -> Path
                                 : Id -> Path
-    Id                          : PlainId -> Id
+    Id                          : PLAIN-ID -> Id
                                 : String -> SEMI
                                 : String -> EOP
                                 : String -> EOB
                                 : String -> EOF
                                 : String -> EOL
-                                : String -> Prefix
-                                : String -> PlainId
-                                : String -> VarPlainId
-                                : String -> SpecialOp
-                                : String -> MultOp
-                                : String -> SumOp
-                                : String -> ColonOp
-                                : String -> AssignOp
-                                : String -> BracketOp
-                                : String -> AmpersandOp
-                                : String -> CircumflexOp
-                                : String -> BarOp
-                                : String -> LetterOp
+                                : String -> PREFIX
+                                : String -> PLAIN-ID
+                                : String -> VAR-PLAIN-ID
+                                : String -> RASSOC-SPECIAL-OP
+                                : String -> RASSOC-MULT-OP
+                                : String -> RASSOC-SUM-OP
+                                : String -> RASSOC-COLON-OP
+                                : String -> RASSOC-CMPR-OP
+                                : String -> RASSOC-BRACKET-OP
+                                : String -> RASSOC-AMPERSAND-OP
+                                : String -> RASSOC-CIRCUMFLEX-OP
+                                : String -> RASSOC-BAR-OP
+                                : String -> RASSOC-LETTER-OP
+                                : String -> SPECIAL-OP
+                                : String -> MULT-OP
+                                : String -> SUM-OP
+                                : String -> COLON-OP
+                                : String -> CMPR-OP
+                                : String -> BRACKET-OP
+                                : String -> AMPERSAND-OP
+                                : String -> CIRCUMFLEX-OP
+                                : String -> BAR-OP
+                                : String -> LETTER-OP
+                                : String -> ASSIGN-OP
 
 
 signature

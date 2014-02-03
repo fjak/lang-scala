@@ -2,1155 +2,1443 @@ definition
 module Scala-Whitespace
 
 exports
-	lexical syntax
-		[\ \t\n\r]       -> LAYOUT
-		"//" ~[\n]* [\n] -> LAYOUT
-		BlockComment     -> LAYOUT
 
-		"/*" BlockCommentPart* "*/" -> BlockComment
-		~[\/\*]      -> BlockCommentPart
-		Asterisk     -> BlockCommentPart
-		Slash        -> BlockCommentPart
-		BlockComment -> BlockCommentPart
+lexical syntax
+[\ \t\n\r]       -> LAYOUT
+"//" ~[\n]* [\n] -> LAYOUT
+BLOCK-COMMENT    -> LAYOUT
 
-		    -> EOL
-		    -> EOF
-		    -> EOB
-		    -> EOP
-		";" -> SEMI
+"/*" BLOCK-COMMENT-PART* "*/" -> BLOCK-COMMENT
+~[\/\*]       -> BLOCK-COMMENT-PART
+ASTERISK      -> BLOCK-COMMENT-PART
+SLASH         -> BLOCK-COMMENT-PART
+BLOCK-COMMENT -> BLOCK-COMMENT-PART
 
-		[\n] -> Nl
-		[\*] -> Asterisk
-		[\/] -> Slash
+    -> EOL
+    -> EOF
+    -> EOB
+    -> EOP
+";" -> SEMI
 
-	lexical restrictions
-		Asterisk -/- [\/]
-		Slash    -/- [\*]
+[\n] -> NL
+[\*] -> ASTERISK
+[\/] -> SLASH
 
-	context-free restrictions
-		LAYOUT? -/- [\ \t\n\r]
-		LAYOUT? -/- [\/].[\*]
-		LAYOUT? -/- [\/].[\/]
-		EOF -/- ~[]
-		EOB -/- ~[\}]
-		EOP -/- ~[\)]
+lexical restrictions
+ASTERISK -/- [\/]
+SLASH    -/- [\*]
+
+context-free restrictions
+LAYOUT? -/- [\ \t\n\r]
+LAYOUT? -/- [\/].[\*]
+LAYOUT? -/- [\/].[\/]
+EOF -/- ~[]
+EOB -/- ~[\}]
+EOP -/- ~[\)]
 
 module Scala-Types
 
 imports
-	Scala-Annotations
-	Scala-BasicDeclsDefs
-	Scala-Identifiers
-	Scala-Whitespace
+Scala-Annotations
+Scala-BasicDeclsDefs
+Scala-Identifiers
+Scala-Whitespace
 
 exports
-	%% §3.1 Paths
-	context-free syntax
-		Id              -> Path {prefer}
-		{PathElem "."}+ -> Path {cons("Path")}
 
-		PlainId                                -> PathElem
-		"this"                                 -> PathElem {cons("This")}
-		"super" ClassQualifier? "." PlainId    -> PathElem {cons("Super")}
+%% §3.1 Paths
+context-free syntax
+Id              -> Path                                                 {prefer}
+{PathElem "."}+ -> Path                                                 {cons("Path")}
 
-		PlainId                 -> StableIdElem
-		"this"                  -> StableIdElem {cons("StableThis")}
-		"super" ClassQualifier? -> StableIdElem {cons("StableSuper")}
+PLAIN-ID                              -> PathElem
+"this"                                -> PathElem                       {cons("This")}
+"super" ClassQualifier? "." PLAIN-ID  -> PathElem                      {cons("Super")}
 
-		Id                              -> StableId
-		{StableIdElem "."}+ "." PlainId -> StableId {cons("StableId")}
+PLAIN-ID                -> StableIdElem
+"this"                  -> StableIdElem                           {cons("StableThis")}
+"super" ClassQualifier? -> StableIdElem                          {cons("StableSuper")}
 
-		"[" PlainId "]" -> ClassQualifier {cons("ClassQualifier")}
+Id                               -> StableId
+{StableIdElem "."}+ "." PLAIN-ID -> StableId                        {cons("StableId")}
 
-		Prefix -> Path {reject} %% not 100% sure this is correct
+"[" PLAIN-ID "]" -> ClassQualifier                            {cons("ClassQualifier")}
 
-	context-free restrictions
-		StableId -/- [\.] . [\33-\126] / [\{\,\_]
+PREFIX -> Path {reject} %% not 100% sure this is correct
+
+context-free restrictions
+StableId -/- [\.] . [\33-\126] / [\{\,\_]
 
 
-	%% §3.2 - Value Types
-	context-free syntax
-		%% §3.2.1 - Singleton Types
-		Path "." "type"     -> SimpleType {cons("SingletonType")}
+%% §3.2 - Value Types
+context-free syntax
+%% §3.2.1 - Singleton Types
+Path "." "type"     -> SimpleType                              {cons("SingletonType")}
 
-		%% §3.2.2 - Type Projection
-		SimpleType "#" Id   -> SimpleType {cons("TypeProjection")}
+%% §3.2.2 - Type Projection
+SimpleType "#" Id   -> SimpleType                             {cons("TypeProjection")}
 
-		%% §3.2.3 - Type Designators
-		StableId            -> SimpleType {cons("Type")}
+%% §3.2.3 - Type Designators
+StableId            -> SimpleType                                       {cons("Type")}
 
-		%% §3.2.4 - Parameterized Types
-		SimpleType TypeArgs -> SimpleType {cons("ParameterizedType")}
-		"[" {Type ","}+ "]" -> TypeArgs {cons("TypeArgs")}
+%% §3.2.4 - Parameterized Types
+SimpleType TypeArgs -> SimpleType                          {cons("ParameterizedType")}
+"[" {Type ","}+ "]" -> TypeArgs                                     {cons("TypeArgs")}
 
-		%% §3.2.5 - Tuple Types
-		"(" {Type ","}+ ")" -> SimpleType {cons("TupleType")}
+%% §3.2.5 - Tuple Types
+"(" {Type ","}+ ")" -> SimpleType                                  {cons("TupleType")}
 
-		%% §3.2.6 - Annotated Types
-		SimpleType             -> AnnotType
-		SimpleType Annotation+ -> AnnotType {cons("AnnotType"), layout("1.last.line == 2.first.line")}
+%% §3.2.6 - Annotated Types
+SimpleType             -> AnnotType
+SimpleType Annotation+ -> AnnotType                                {cons("AnnotType"),
+                                          layout("1.last.line == 2.first.line")}
 
-		%% §3.2.7 - Compound Types
-		AnnotType                   -> CompoundType
-		Refinement                  -> CompoundType
-		AnnotType Refinement        -> CompoundType {cons("RefinedType")}
-		AnnotType With+ Refinement? -> CompoundType {cons("CompoundType"), layout("3.first.line - 2.last.line < num(2)")}
+%% §3.2.7 - Compound Types
+AnnotType                   -> CompoundType
+Refinement                  -> CompoundType
+AnnotType Refinement        -> CompoundType                      {cons("RefinedType")}
+AnnotType With+ Refinement? -> CompoundType                      {cons("CompoundType"),
+                                  layout("3.first.line - 2.last.line < num(2)")}
 
-		"with" AnnotType -> With {cons("With")}
+"with" AnnotType -> With                                                {cons("With")}
 
-		"{" RefineStatSemi* "}" -> Refinement {cons("Refinement")}
+"{" RefineStatSemi* "}" -> Refinement                             {cons("Refinement")}
 
-		RefineStat SEMI -> RefineStatSemi {cons("RefineStatSemi"), longest-match}
-		RefineStat EOL  -> RefineStatSemi {cons("RefineStatSemi"), enforce-newline, longest-match, prefer}
-		RefineStat EOB  -> RefineStatSemi {cons("RefineStatSemi"), longest-match, avoid}
+RefineStat EOL  -> RefineStatSemi                             {cons("RefineStatSemi"),
+                                         enforce-newline, longest-match, prefer}
+RefineStat SEMI -> RefineStatSemi              {longest-match, cons("RefineStatSemi")}
+RefineStat EOB  -> RefineStatSemi       {longest-match, avoid, cons("RefineStatSemi")}
 
-		Dcl            -> RefineStat
-		"type" TypeDef -> RefineStat {cons("TypeRefineStat")}
+Dcl            -> RefineStat
+"type" TypeDef -> RefineStat                                  {cons("TypeRefineStat")}
 
-		%% §3.2.8 - Infix Types
-		InfixType -> Type
+%% §3.2.8 - Infix Types
+InfixType -> Type
 
-		CompoundType                -> InfixType
-		InfixType PlainId InfixType -> InfixType {cons("InfixType"), left, layout("3.first.line - 2.last.line < num(2)")}
+CompoundType                 -> InfixType
+InfixType PLAIN-ID InfixType -> InfixType                    {left, cons("InfixType"),
+                                  layout("3.first.line - 2.last.line < num(2)")}
 
-		%% §3.2.9 - Function Types
-		FunctionArgTypes "=>" Type  -> Type {cons("FunctionType"), prefer}
+%% §3.2.9 - Function Types
+FunctionArgTypes "=>" Type  -> Type                     {prefer, cons("FunctionType")}
 
-		InfixType                -> FunctionArgTypes
-		"(" {ParamType ","}* ")" -> FunctionArgTypes {cons("FunctionArgType"), prefer}
+InfixType                -> FunctionArgTypes
+"(" {ParamType ","}* ")" -> FunctionArgTypes         {prefer, cons("FunctionArgType")}
 
-		%% §3.2.10 - Existential Types
-		InfixType ExistentialClause -> Type {cons("ExistentialType")}
+%% §3.2.10 - Existential Types
+InfixType ExistentialClause -> Type {cons("ExistentialType")}
 
-		"forSome" "{" ExistentialDclSemi+ "}" -> ExistentialClause {cons("ExistentialClause")}
+"forSome" "{" ExistentialDclSemi+ "}" -> ExistentialClause {cons("ExistentialClause")}
 
-		ExistentialDcl SEMI -> ExistentialDclSemi {cons("ExistentialDclSemi"), longest-match}
-		ExistentialDcl EOL  -> ExistentialDclSemi {cons("ExistentialDclSemi"), enforce-newline, longest-match, prefer}
-		ExistentialDcl EOB  -> ExistentialDclSemi {cons("ExistentialDclSemi"), longest-match}
+ExistentialDcl SEMI -> ExistentialDclSemi  {longest-match, cons("ExistentialDclSemi")}
+ExistentialDcl EOL  -> ExistentialDclSemi                 {cons("ExistentialDclSemi"),
+                                         enforce-newline, longest-match, prefer}
+ExistentialDcl EOB  -> ExistentialDclSemi  {longest-match, cons("ExistentialDclSemi")}
 
-		"type" TypeDcl -> ExistentialDcl {cons("ExistentialType")}
-		"val"  ValDcl  -> ExistentialDcl {cons("ExistentialVal")}
+"type" TypeDcl -> ExistentialDcl                             {cons("ExistentialType")}
+"val"  ValDcl  -> ExistentialDcl                              {cons("ExistentialVal")}
 
-		"_" TypeBounds?     -> SimpleType {cons("WildcardType"), avoid}
+"_" TypeBounds?     -> SimpleType                        {avoid, cons("WildcardType")}
 
-		">:" Type           -> TypeBounds {cons("LowerTypeBound")}
-		"<:" Type           -> TypeBounds {cons("UpperTypeBound")}
-		">:" Type "<:" Type -> TypeBounds {cons("LowerAndUpperTypeBound")}
+">:" Type           -> TypeBounds                             {cons("LowerTypeBound")}
+"<:" Type           -> TypeBounds                             {cons("UpperTypeBound")}
+">:" Type "<:" Type -> TypeBounds                     {cons("LowerAndUpperTypeBound")}
 
 module Scala-TopLevelDefinitions
 
 imports
-	Scala-BasicDeclsDefs
-	Scala-ClassesObjects
-	Scala-Identifiers
-	Scala-Whitespace
-
-exports
-	context-free syntax
-		-> CompilationUnit {cons("EmptyCompilationUnit")}
-		PackageDeclarationSemi* TopStatSemi+ -> CompilationUnit {cons("CompilationUnit")}
-
-		TopStat SEMI -> TopStatSemi {cons("TopStatSemi")}
-		TopStat EOL  -> TopStatSemi {cons("TopStatSemi"), enforce-newline, longest-match, prefer}
-		TopStat EOF  -> TopStatSemi {cons("TopStatSemi"), longest-match}
-		TopStat EOB  -> TopStatSemi {cons("TopStatSemi"), longest-match, avoid}
-
-		AnnotationSeq? Modifier* TmplDef -> TopStat {cons("TopTmplDef")}
-		Import                           -> TopStat
-		Packaging                        -> TopStat
-		PackageObject                    -> TopStat
-
-		"package" QualId EOL  -> PackageDeclarationSemi {cons("PackageDeclaration"), enforce-newline}
-		"package" QualId SEMI -> PackageDeclarationSemi {cons("PackageDeclaration")}
-
-		{Id "."}+ -> QualId {cons("QualId")}
-
-		"package" QualId "{" TopStatSemi+ "}" -> Packaging {cons("Packaging"), layout("3.first.line - 2.last.line < num(2)")}
-
-		"package" "object" ObjectDef -> PackageObject {cons("PackageObject")}
-
-module Scala-PatternMatching
-
-imports
-	Scala-Literals
-	Scala-Types
-
-exports
-	lexical syntax
-		PlainId -> InfixPatternOp
-		"|" -> InfixPatternOp {reject}
-
-	context-free priorities
-		{
-			"_"                                                        -> SimplePattern {cons("WildcardPattern")}
-			%% VarId                                                      -> SimplePattern {"VariablePattern"}
-			Literal                                                    -> SimplePattern {cons("LiteralPattern")}
-			StableId                                                   -> SimplePattern
-			StableId "(" Patterns ")"                                  -> SimplePattern {cons("ConstructorPattern")}
-			"(" Patterns ")"                                           -> SimplePattern {cons("TuplePattern")}
-			StableId "(" (Patterns ",")? (VarPlainId "@")? "_" "*" ")" -> SimplePattern {cons("PatternSequence")}
-		}
-
-		> {
-			Pattern3 InfixPatternOp Pattern3 -> Pattern3 {cons("InfixPattern"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-			SimplePattern                    -> Pattern3
-		}
-
-		> {
-			VarPlainId "@" Pattern3 -> Pattern2 {cons("PatternBinder")}
-			Pattern3                -> Pattern2
-		}
-
-		> {
-			VarPlainId ":" Type -> Pattern1 {cons("TypedPattern")}
-			"_" ":" Type        -> Pattern1 {cons("WildcardTypedPattern")}
-			Pattern2            -> Pattern1
-		}
-
-		> {
-			Pattern1            -> Pattern {longest-match}
-			Pattern "|" Pattern -> Pattern {cons("DisjunctPattern"), left}
-		}
-
-	%%%%% Repeat priorities in context-free syntax for correct PPTable generation %%%%%
-	context-free syntax
-		"_"                                                        -> SimplePattern {cons("WildcardPattern")}
-		Literal                                                    -> SimplePattern {cons("LiteralPattern")}
-		StableId "(" Patterns ")"                                  -> SimplePattern {cons("ConstructorPattern")}
-		"(" Patterns ")"                                           -> SimplePattern {cons("TuplePattern")}
-		StableId "(" (Patterns ",")? (VarPlainId "@")? "_" "*" ")" -> SimplePattern {cons("PatternSequence")}
-		Pattern3 InfixPatternOp Pattern3                           -> Pattern3 {cons("InfixPattern"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		VarPlainId "@" Pattern3                                    -> Pattern2 {cons("PatternBinder")}
-		VarPlainId ":" Type                                        -> Pattern1 {cons("TypedPattern")}
-		"_" ":" Type                                               -> Pattern1 {cons("WildcardTypedPattern")}
-		Pattern "|" Pattern                                        -> Pattern {cons("DisjunctPattern"), left}
-
-	context-free syntax
-		{Pattern ","}* -> Patterns {cons("Patterns")}
-
-module Scala-Macros
-
-imports
-	Scala-BasicDeclsDefs
-	Scala-Identifiers
-	Scala-Types
+Scala-BasicDeclsDefs
+Scala-ClassesObjects
+Scala-Identifiers
+Scala-Whitespace
 
 exports
 
 context-free syntax
-	FunSig (":" Type)? "=" "macro" StableId TypeArgs? -> FunDef {cons("MacroDef")}
+-> CompilationUnit                                      {cons("EmptyCompilationUnit")}
+PackageDeclarationSemi* TopStatSemi+ -> CompilationUnit      {cons("CompilationUnit")}
+
+TopStat EOL  -> TopStatSemi                                      {cons("TopStatSemi"),
+                                         enforce-newline, longest-match, prefer}
+TopStat SEMI -> TopStatSemi                                      {cons("TopStatSemi")}
+TopStat EOF  -> TopStatSemi                       {longest-match, cons("TopStatSemi")}
+TopStat EOB  -> TopStatSemi                {longest-match, avoid, cons("TopStatSemi")}
+
+AnnotationSeq? Modifier* TmplDef -> TopStat                       {cons("TopTmplDef")}
+Import                           -> TopStat
+Packaging                        -> TopStat
+PackageObject                    -> TopStat
+
+"package" QualId EOL  -> PackageDeclarationSemi           {cons("PackageDeclaration"),
+                                                                enforce-newline}
+"package" QualId SEMI -> PackageDeclarationSemi           {cons("PackageDeclaration")}
+
+{Id "."}+ -> QualId                                                   {cons("QualId")}
+
+"package" QualId "{" TopStatSemi+ "}" -> Packaging                 {cons("Packaging"),
+                                  layout("3.first.line - 2.last.line < num(2)")}
+
+"package" "object" ObjectDef -> PackageObject                  {cons("PackageObject")}
+
+module Scala-PatternMatching
+
+imports
+Scala-Literals
+Scala-Types
+
+exports
+
+lexical syntax
+PLAIN-ID -> INFIX-PATTERN-OP
+"|"      -> INFIX-PATTERN-OP                                            {reject}
+
+context-free priorities
+{
+  "_"                                    -> SimplePattern    {cons("WildcardPattern")}
+%%VarId                                  -> SimplePattern    {"VariablePattern"}
+  Literal                                -> SimplePattern     {cons("LiteralPattern")}
+  StableId "(" Patterns ")"              -> SimplePattern {cons("ConstructorPattern")}
+  "(" Patterns ")"                       -> SimplePattern       {cons("TuplePattern")}
+  StableId "(" (Patterns ",")? (VAR-PLAIN-ID "@")? "_" "*" ")"
+                                         -> SimplePattern    {cons("PatternSequence")}
+  StableId                               -> SimplePattern
+}
+
+> {
+  Pattern3 INFIX-PATTERN-OP Pattern3 -> Pattern3          {left, cons("InfixPattern"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  SimplePattern                      -> Pattern3
+}
+
+> {
+  VAR-PLAIN-ID "@" Pattern3 -> Pattern2                        {cons("PatternBinder")}
+  Pattern3                  -> Pattern2
+}
+
+> {
+  VAR-PLAIN-ID ":" Type -> Pattern1                             {cons("TypedPattern")}
+  "_" ":" Type          -> Pattern1                     {cons("WildcardTypedPattern")}
+  Pattern2              -> Pattern1
+}
+
+> {
+  Pattern1            -> Pattern                                 {longest-match}
+  Pattern "|" Pattern -> Pattern                       {cons("DisjunctPattern"), left}
+}
+
+context-free syntax
+{Pattern ","}* -> Patterns {cons("Patterns")}
+
+%%% Repeat priorities in context-free syntax for correct PPTable generation %%%
+context-free syntax
+"_"                                  -> SimplePattern        {cons("WildcardPattern")}
+Literal                              -> SimplePattern         {cons("LiteralPattern")}
+StableId "(" Patterns ")"            -> SimplePattern     {cons("ConstructorPattern")}
+"(" Patterns ")"                     -> SimplePattern           {cons("TuplePattern")}
+StableId "(" (Patterns ",")?
+  (VAR-PLAIN-ID "@")? "_" "*" ")"    -> SimplePattern        {cons("PatternSequence")}
+Pattern3 INFIX-PATTERN-OP Pattern3   -> Pattern3          {left, cons("InfixPattern"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+VAR-PLAIN-ID "@" Pattern3            -> Pattern2               {cons("PatternBinder")}
+VAR-PLAIN-ID ":" Type                -> Pattern1                {cons("TypedPattern")}
+"_" ":" Type                         -> Pattern1        {cons("WildcardTypedPattern")}
+Pattern "|" Pattern                  -> Pattern        {left, cons("DisjunctPattern")}
+
+module Scala-Macros
+
+imports
+Scala-BasicDeclsDefs
+Scala-Identifiers
+Scala-Types
+
+exports
+
+context-free syntax
+FunSig (":" Type)? "=" "macro" StableId TypeArgs?         -> FunDef {cons("MacroDef")}
 
 module Scala-Literals
 
 imports
-	Scala-Identifiers
+Scala-Identifiers
 
 exports
-	lexical syntax
-		DecimalNumeral ("L" | "l")? -> IntegerLiteral
-		HexNumeral ("L" | "l")?     -> IntegerLiteral
-		OctalNumeral ("L" | "l")?   -> IntegerLiteral {prefer}
-		"-" IntegerLiteral          -> IntegerLiteral
 
-		[0] | NonZeroDigit Digit* -> DecimalNumeral
-		"0x" HexDigit+ -> HexNumeral
-		[0] OctalDigit+ -> OctalNumeral
-		[0-9]       -> Digit
-		[1-9]       -> NonZeroDigit
-		[0-7]       -> OctalDigit
-		[0-9A-Fa-f] -> HexDigit
+lexical syntax
+DECIMAL-NUMERAL ("L" | "l")? -> INTEGER
+HEX-NUMERAL ("L" | "l")?     -> INTEGER
+OCTAL-NUMERAL ("L" | "l")?   -> INTEGER                                 {prefer}
+"-" INTEGER                  -> INTEGER
 
-		Digit+ "." Digit+ ExponentPart? FloatType? -> FloatingPointLiteral
-		"." Digit+ ExponentPart? FloatType?        -> FloatingPointLiteral
-		Digit+ ExponentPart                        -> FloatingPointLiteral
-		Digit+ FloatType                           -> FloatingPointLiteral
-		Digit+ ExponentPart FloatType              -> FloatingPointLiteral
-		"-" FloatingPointLiteral                   -> FloatingPointLiteral
+[0] | NON-ZERO-DIGIT DIGIT* -> DECIMAL-NUMERAL
+"0x" HEX-DIGIT+             -> HEX-NUMERAL
+[0] OCTAL-DIGIT+            -> OCTAL-NUMERAL
+[0-9]       -> DIGIT
+[1-9]       -> NON-ZERO-DIGIT
+[0-7]       -> OCTAL-DIGIT
+[0-9A-Fa-f] -> HEX-DIGIT
 
-		("E" | "e") ("+" | "-")? Digit+ -> ExponentPart
-		"F" | "f" | "D" | "d" -> FloatType
+DIGIT+ "." DIGIT+ EXPONENT-PART? FLOAT-TYPE? -> FLOATING-POINT
+"." DIGIT+ EXPONENT-PART? FLOAT-TYPE?        -> FLOATING-POINT
+DIGIT+ EXPONENT-PART                         -> FLOATING-POINT
+DIGIT+ FLOAT-TYPE                            -> FLOATING-POINT
+DIGIT+ EXPONENT-PART FLOAT-TYPE              -> FLOATING-POINT
+"-" FLOATING-POINT                           -> FLOATING-POINT
 
-		"'" PrintableChar "'" -> CharacterLiteral
-		"'" CharEscapeSeq "'" -> CharacterLiteral
+("E" | "e") ("+" | "-")? DIGIT+ -> EXPONENT-PART
+"F" | "f" | "D" | "d"           -> FLOAT-TYPE
 
-		[\32-\126]          -> PrintableChar
-		[\0-\127] / [\"]    -> CharNoDoubleQuote
+"'" PRINTABLE "'"       -> CHAR
+"'" CHAR-ESCAPE-SEQ "'" -> CHAR
 
-		"\\b" | "\\t" | "\\n" | "\\f" | "\\r" | "\\\"" | "\\'" | "\\\\" -> CharEscapeSeq
-		"\\" [0-1]? [0-9]? [0-9]                                        -> CharEscapeSeq
-		"\\" Digit? Digit? Digit                                        -> CharEscapeSeq
-		UnicodeEscape                                                   -> CharEscapeSeq
+[\32-\126]        -> PRINTABLE
+[\0-\127] / [\"]  -> CHAR-NO-DOUBLE-QUOTE
 
-		"\\" "u" HexDigit HexDigit HexDigit HexDigit -> UnicodeEscape
+"\\b" | "\\t" | "\\n" | "\\f" |
+"\\r" | "\\\"" | "\\'" | "\\\\" -> CHAR-ESCAPE-SEQ
+"\\" [0-1]? [0-9]? [0-9]        -> CHAR-ESCAPE-SEQ
+"\\" DIGIT? DIGIT? DIGIT        -> CHAR-ESCAPE-SEQ
+UNICODE-ESCAPE                  -> CHAR-ESCAPE-SEQ
 
-		"\"" StringElement* "\""         -> StringLiteral
-		"\"\"\"" MultiLineChars "\"\"\"" -> StringLiteral
+"\\" "u" HEX-DIGIT HEX-DIGIT HEX-DIGIT HEX-DIGIT -> UNICODE-ESCAPE
 
-		[\32-\126] / [\"\\]        -> StringElement
-		CharEscapeSeq              -> StringElement
+"\"" STRING-ELEMENT* "\""          -> STRING
+"\"\"\"" MULTI-LINE-CHARS "\"\"\"" -> STRING
 
-		PlainId "\"" ProcessedStringElement* "\""                  -> ProcessedString
-		PlainId "\"\"\"" MultiLineProcessedStringElement "\"\"\""  -> ProcessedString
+[\32-\126] / [\"\\]   -> STRING-ELEMENT
+CHAR-ESCAPE-SEQ       -> STRING-ELEMENT
+
+PLAIN-ID "\"" PROCESSED-STRING-ELEMENT* "\""                 -> PROCESSED-STRING
+PLAIN-ID "\"\"\"" MULTI-LINE-PROCESSED-STRING-ELEMENT "\"\"\""
+                                                             -> PROCESSED-STRING
 
 
-		[\32-\126] / [\"\$\\] -> ProcessedStringElement
-		CharEscapeSeq         -> ProcessedStringElement
-		Processing            -> ProcessedStringElement
+[\32-\126] / [\"\$\\] -> PROCESSED-STRING-ELEMENT
+CHAR-ESCAPE-SEQ       -> PROCESSED-STRING-ELEMENT
+PROCESSING            -> PROCESSED-STRING-ELEMENT
 
-		"$$"                        -> Processing
-		"${" ProcessingElement* "}" -> Processing
-		"$" IPlainId                -> Processing
+"$$"                         -> PROCESSING
+"${" PROCESSING-ELEMENT* "}" -> PROCESSING
+"$" IPLAIN-ID                -> PROCESSING
 
-		"{" ProcessingElement* "}" -> ProcessingElement
-		[\0-\127] / [\{\}\"]       -> ProcessingElement
-		ProcessedString            -> ProcessingElement
-		StringLiteral              -> ProcessingElement
+"{" PROCESSING-ELEMENT* "}" -> PROCESSING-ELEMENT
+[\0-\127] / [\{\}\"]        -> PROCESSING-ELEMENT
+PROCESSED-STRING            -> PROCESSING-ELEMENT
+STRING                      -> PROCESSING-ELEMENT
 
-		([\"]? [\"]? CharNoDoubleQuote)* [\"]* -> MultiLineChars
+([\"]? [\"]? CHAR-NO-DOUBLE-QUOTE)* [\"]* -> MULTI-LINE-CHARS
 
-		([\"]? [\"]? IMultiLineProcessedStringElement)* [\"]* -> MultiLineProcessedStringElement
+([\"]? [\"]? IMULTI-LINE-PROCESSED-STRING-ELEMENT)* [\"]*
+                                          -> MULTI-LINE-PROCESSED-STRING-ELEMENT
 
-		Processing         -> IMultiLineProcessedStringElement
-		[\0-\127] / [\"\$] -> IMultiLineProcessedStringElement
+PROCESSING         -> IMULTI-LINE-PROCESSED-STRING-ELEMENT
+[\0-\127] / [\"\$] -> IMULTI-LINE-PROCESSED-STRING-ELEMENT
 
-		[\"]      -> DoubleQuote
-		[\"] [\"] -> DoubleDoubleQuote
+[\"]      -> DOUBLE-QUOTE
+[\"] [\"] -> DOUBLE-DOUBLE-QUOTE
 
-		"'" IPlainId -> SymbolLiteral
+"'" IPLAIN-ID -> SYMBOL
 
-	lexical restrictions
-		IntegerLiteral -/- [0-9a-zA-Z]
-		FloatingPointLiteral -/- [0-9a-zA-Z]
-		Literal -/- [0-9a-zA-Z]
-		"true" -/- [a-zA-Z0-9]
-		"false" -/- [a-zA-Z0-9]
-		DoubleQuote -/- [\"]
-		DoubleDoubleQuote -/- [\"]
+lexical restrictions
+INTEGER        -/- [0-9a-zA-Z]
+FLOATING-POINT -/- [0-9a-zA-Z]
+Literal        -/- [0-9a-zA-Z]
+"true"         -/- [0-9a-zA-Z]
+"false"        -/- [0-9a-zA-Z]
+DOUBLE-QUOTE        -/- [\"]
+DOUBLE-DOUBLE-QUOTE -/- [\"]
 
-	context-free syntax
-		IntegerLiteral       -> Literal {cons("Int")}
-		FloatingPointLiteral -> Literal {cons("Float")}
-		BooleanLiteral       -> Literal
-		CharacterLiteral     -> Literal {cons("Char")}
-		StringLiteral        -> Literal {cons("String")}
-		SymbolLiteral        -> Literal {cons("Symbol")}
-		"null"               -> Literal {cons("Null")}
-		ProcessedString      -> Literal {cons("ProcessedString")}
+context-free syntax
+INTEGER          -> Literal                                              {cons("Int")}
+FLOATING-POINT   -> Literal                                            {cons("Float")}
+CHAR             -> Literal                                             {cons("Char")}
+STRING           -> Literal                                           {cons("String")}
+SYMBOL           -> Literal                                           {cons("Symbol")}
+"null"           -> Literal                                             {cons("Null")}
+PROCESSED-STRING -> Literal                                  {cons("ProcessedString")}
+BooleanLiteral   -> Literal
 
-		"true"  -> BooleanLiteral {cons("True")}
-		"false" -> BooleanLiteral {cons("False")}
+"true"  -> BooleanLiteral                                               {cons("True")}
+"false" -> BooleanLiteral                                              {cons("False")}
 
 module Scala-Identifiers
 
 exports
 
 lexical syntax
-	[A-Z] | [\$] -> Upper
-	[a-z] -> Lower
-	Upper | Lower -> Letter
-	[0-9] -> Digit
-	Letter | Digit -> IdRest
+[A-Z] | [\$]   -> UPPER
+[a-z]          -> LOWER
+UPPER | LOWER  -> LETTER
+[0-9]          -> DIGIT
+LETTER | DIGIT -> ID-REST
 
-	[\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~] -> OpChar
+[\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~] -> OP-CHAR
 
-	%% Operators by precedence from low to high
-	VarPlainId | TypePlainId     -> LetterOp
-	[\|] OpChar*                 -> BarOp
-	[\^] OpChar*                 -> CircumflexOp
-	[\&] OpChar*                 -> AmpersandOp
-	([\<] | [\>]) OpChar*        -> BracketOp
-	([\=] | [\!]) OpChar*        -> AssignOp
-	[\:] OpChar*                 -> ColonOp
-	([\+] | [\-]) OpChar*        -> SumOp
-	([\*] | [\/] | [\%]) OpChar* -> MultOp
-	[\#\?\@\\\~] OpChar*         -> SpecialOp
+%% OPerators by precedence from low to high
+OP-CHAR* [\=]                 -> ASSIGN-OP
+VAR-PLAIN-ID | CONST-PLAIN-ID -> LETTER-OP
+[\|] OP-CHAR*                 -> BAR-OP
+[\^] OP-CHAR*                 -> CIRCUMFLEX-OP
+[\&] OP-CHAR*                 -> AMPERSAND-OP
+([\<] | [\>]) OP-CHAR*        -> BRACKET-OP
+([\=] | [\!]) OP-CHAR*        -> CMPR-OP
+[\:] OP-CHAR*                 -> COLON-OP
+([\+] | [\-]) OP-CHAR*        -> SUM-OP
+([\*] | [\/] | [\%]) OP-CHAR* -> MULT-OP
+[\#\?\@\\\~] OP-CHAR*         -> SPECIAL-OP
 
-	"="  -> AssignOp {reject}
-	"=>" -> AssignOp {reject}
-	":"  -> ColonOp  {reject}
-	"<-" -> BracketOp {reject}
-	"<:" -> BracketOp {reject}
-	"<%" -> BracketOp {reject}
-	">:" -> BracketOp {reject}
-	"#"  -> SpecialOp {reject}
-	"@"  -> SpecialOp {reject}
+%% right associative operators
+%% TODO: Make RASSOC-LETTER-OP actually work
+%%       Won't do at the current state, as of restrictions on OP
+(VAR-PLAIN-ID | CONST-PLAIN-ID) [\:] -> RASSOC-LETTER-OP
+[\|] OP-CHAR* [\:]                   -> RASSOC-BAR-OP
+[\^] OP-CHAR* [\:]                   -> RASSOC-CIRCUMFLEX-OP
+[\&] OP-CHAR* [\:]                   -> RASSOC-AMPERSAND-OP
+([\<] | [\>]) OP-CHAR* [\:]          -> RASSOC-BRACKET-OP
+([\=] | [\!]) OP-CHAR* [\:]          -> RASSOC-CMPR-OP
+[\:] OP-CHAR* [\:]                   -> RASSOC-COLON-OP
+([\+] | [\-]) OP-CHAR* [\:]          -> RASSOC-SUM-OP
+([\*] | [\/] | [\%]) OP-CHAR* [\:]   -> RASSOC-MULT-OP
+[\#\?\@\\\~] OP-CHAR* [\:]           -> RASSOC-SPECIAL-OP
 
-	OpChar+ -> Op
+[\=] OP-CHAR* [\=] -> ASSIGN-OP {reject}
+"="  -> ASSIGN-OP  {reject}
+"<=" -> ASSIGN-OP  {reject}
+">=" -> ASSIGN-OP  {reject}
+"!=" -> ASSIGN-OP  {reject}
+"="  -> CMPR-OP    {reject}
+"=>" -> CMPR-OP    {reject}
+":"  -> COLON-OP   {reject}
+"<-" -> BRACKET-OP {reject}
+"<:" -> BRACKET-OP {reject}
+"<:" -> RASSOC-BRACKET-OP {reject}
+"<%" -> BRACKET-OP {reject}
+">:" -> BRACKET-OP {reject}
+">:" -> RASSOC-BRACKET-OP {reject}
+"#"  -> SPECIAL-OP {reject}
+"@"  -> SPECIAL-OP {reject}
 
-	[\_] -> IVarId
-	Lower -> IVarId
-	(IVarId | IVarIdUSS) IdRest -> IVarId
-	(IVarId | IVarIdUSS) [\_] -> IVarIdUSS
-	IVarIdUSS [\_] -> IVarIdUSS
-	IVarIdUSS Op -> IVarIdOp
+%% ASSIGN-OP is exception and thus more important than the other ops
+ASSIGN-OP -> LETTER-OP     {reject}
+ASSIGN-OP -> BAR-OP        {reject}
+ASSIGN-OP -> CIRCUMFLEX-OP {reject}
+ASSIGN-OP -> AMPERSAND-OP  {reject}
+ASSIGN-OP -> BRACKET-OP    {reject}
+ASSIGN-OP -> CMPR-OP       {reject}
+ASSIGN-OP -> COLON-OP      {reject}
+ASSIGN-OP -> SUM-OP        {reject}
+ASSIGN-OP -> MULT-OP       {reject}
+ASSIGN-OP -> SPECIAL-OP    {reject}
 
-	Upper -> ITypeId
-	(ITypeId | ITypeIdUSS) IdRest -> ITypeId
-	(ITypeId | ITypeIdUSS) [\_] -> ITypeIdUSS
-	ITypeIdUSS Op -> ITypeIdOp
+%% Right associative identifiers have higher priority than
+%% their left associative counterparts
+RASSOC-LETTER-OP     -> LETTER-OP     {reject}
+RASSOC-BAR-OP        -> BAR-OP        {reject}
+RASSOC-CIRCUMFLEX-OP -> CIRCUMFLEX-OP {reject}
+RASSOC-AMPERSAND-OP  -> AMPERSAND-OP  {reject}
+RASSOC-BRACKET-OP    -> BRACKET-OP    {reject}
+RASSOC-CMPR-OP       -> CMPR-OP       {reject}
+RASSOC-COLON-OP      -> COLON-OP      {reject}
+RASSOC-SUM-OP        -> SUM-OP        {reject}
+RASSOC-MULT-OP       -> MULT-OP       {reject}
+RASSOC-SPECIAL-OP    -> SPECIAL-OP    {reject}
 
-	IVarId -> VarId
-	IVarIdUSS -> VarIdUSS
-	IVarIdOp -> VarIdOp
-	ITypeId -> TypeId
-	ITypeIdUSS -> TypeIdUSS
-	ITypeIdOp -> TypeIdOp
+OP-CHAR+ -> OP
 
-	(VarId  | VarIdUSS  | VarIdOp)  -> IVarPlainId
-	(TypeId | TypeIdUSS | TypeIdOp) -> ITypePlainId
+LOWER                           -> IVAR-ID
+(IVAR-ID | IVAR-ID-USS) ID-REST -> IVAR-ID
+(IVAR-ID | IVAR-ID-USS) [\_]    -> IVAR-ID-USS
+IVAR-ID-USS OP                  -> IVAR-ID-OP
 
-	Op           -> IPlainId
-	IVarPlainId  -> IPlainId
-	ITypePlainId -> IPlainId
+[\_]                                -> ICONST-ID
+UPPER                               -> ICONST-ID
+(ICONST-ID | ICONST-ID-USS) ID-REST -> ICONST-ID
+(ICONST-ID | ICONST-ID-USS) [\_]    -> ICONST-ID-USS
+ICONST-ID-USS [\_]                  -> ICONST-ID-USS
+ICONST-ID-USS OP                    -> ICONST-ID-OP
 
-	IVarPlainId  -> VarPlainId
-	ITypePlainId -> TypePlainId
-	IPlainId     -> PlainId
+IVAR-ID     -> VAR-ID
+IVAR-ID-USS -> VAR-ID-USS
+IVAR-ID-OP  -> VAR-ID-OP
 
-	"abstract"  -> Keyword
-	"case"      -> Keyword
-	"catch"     -> Keyword
-	"class"     -> Keyword
-	"def"       -> Keyword
-	"do"        -> Keyword
-	"else"      -> Keyword
-	"extends"   -> Keyword
-	"false"     -> Keyword
-	"final"     -> Keyword
-	"finally"   -> Keyword
-	"for"       -> Keyword
-	"forSome"   -> Keyword
-	"if"        -> Keyword
-	"implicit"  -> Keyword
-	"import"    -> Keyword
-	"lazy"      -> Keyword
-	"macro"     -> Keyword
-	"match"     -> Keyword
-	"new"       -> Keyword
-	"null"      -> Keyword
-	"object"    -> Keyword
-	"override"  -> Keyword
-	"package"   -> Keyword
-	"private"   -> Keyword
-	"protected" -> Keyword
-	"return"    -> Keyword
-	"sealed"    -> Keyword
-	"super"     -> Keyword
-	"this"      -> Keyword
-	"throw"     -> Keyword
-	"trait"     -> Keyword
-	"try"       -> Keyword
-	"true"      -> Keyword
-	"type"      -> Keyword
-	"val"       -> Keyword
-	"var"       -> Keyword
-	"while"     -> Keyword
-	"with"      -> Keyword
-	"yield"     -> Keyword
-	"_"         -> Keyword
-	":"         -> Keyword
-	"="         -> Keyword
-	"=>"        -> Keyword
-	"<-"        -> Keyword
-	"<:"        -> Keyword
-	"<%"        -> Keyword
-	">:"        -> Keyword
-	"#"         -> Keyword
-	"@"         -> Keyword
+ICONST-ID     -> CONST-ID
+ICONST-ID-USS -> CONST-ID-USS
+ICONST-ID-OP  -> CONST-ID-OP
 
-	Keyword     -> VarPlainId {reject}
-	Keyword     -> TypePlainId {reject}
-	Keyword     -> PlainId {reject}
+(VAR-ID   | VAR-ID-USS   | VAR-ID-OP)   -> IVAR-PLAIN-ID
+(CONST-ID | CONST-ID-USS | CONST-ID-OP) -> ICONST-PLAIN-ID
 
-	"-" -> MinusPrefix
-	"+"         -> Prefix
-	MinusPrefix -> Prefix
-	"~"         -> Prefix
-	"!"         -> Prefix
+OP              -> IPLAIN-ID
+IVAR-PLAIN-ID   -> IPLAIN-ID
+ICONST-PLAIN-ID -> IPLAIN-ID
 
-	"`" ~[\`]+ "`" -> FancyId
-	FancyId        -> PlainId
+IVAR-PLAIN-ID   -> VAR-PLAIN-ID
+ICONST-PLAIN-ID -> CONST-PLAIN-ID
+IPLAIN-ID       -> PLAIN-ID
+
+"abstract"  -> KEYWORD
+"case"      -> KEYWORD
+"catch"     -> KEYWORD
+"class"     -> KEYWORD
+"def"       -> KEYWORD
+"do"        -> KEYWORD
+"else"      -> KEYWORD
+"extends"   -> KEYWORD
+"false"     -> KEYWORD
+"final"     -> KEYWORD
+"finally"   -> KEYWORD
+"for"       -> KEYWORD
+"forSome"   -> KEYWORD
+"if"        -> KEYWORD
+"implicit"  -> KEYWORD
+"import"    -> KEYWORD
+"lazy"      -> KEYWORD
+"macro"     -> KEYWORD
+"match"     -> KEYWORD
+"new"       -> KEYWORD
+"null"      -> KEYWORD
+"object"    -> KEYWORD
+"override"  -> KEYWORD
+"package"   -> KEYWORD
+"private"   -> KEYWORD
+"protected" -> KEYWORD
+"return"    -> KEYWORD
+"sealed"    -> KEYWORD
+"super"     -> KEYWORD
+"this"      -> KEYWORD
+"throw"     -> KEYWORD
+"trait"     -> KEYWORD
+"try"       -> KEYWORD
+"true"      -> KEYWORD
+"type"      -> KEYWORD
+"val"       -> KEYWORD
+"var"       -> KEYWORD
+"while"     -> KEYWORD
+"with"      -> KEYWORD
+"yield"     -> KEYWORD
+"_"         -> KEYWORD
+":"         -> KEYWORD
+"="         -> KEYWORD
+"=>"        -> KEYWORD
+"<-"        -> KEYWORD
+"<:"        -> KEYWORD
+"<%"        -> KEYWORD
+">:"        -> KEYWORD
+"#"         -> KEYWORD
+"@"         -> KEYWORD
+
+KEYWORD  -> VAR-PLAIN-ID   {reject}
+KEYWORD  -> CONST-PLAIN-ID {reject}
+KEYWORD  -> PLAIN-ID       {reject}
+
+"-"          -> MINUS-PREFIX
+"+"          -> PREFIX
+MINUS-PREFIX -> PREFIX
+"~"          -> PREFIX
+"!"          -> PREFIX
+
+"`" ~[\`]+ "`" -> FANCY-ID
+FANCY-ID       -> PLAIN-ID
 
 lexical restrictions
-	Op -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+OP -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
 
-	LetterOp      -/- [a-zA-Z0-9]
-	BarOp         -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	CircumflexOp  -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	AmpersandOp   -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	BracketOp     -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	AssignOp      -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	ColonOp       -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	SumOp         -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	MultOp        -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	SpecialOp     -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+ASSIGN-OP      -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+LETTER-OP      -/- [a-zA-Z0-9]
+BAR-OP         -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+CIRCUMFLEX-OP  -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+AMPERSAND-OP   -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+BRACKET-OP     -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+CMPR-OP        -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+COLON-OP       -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+SUM-OP         -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+MULT-OP        -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+SPECIAL-OP     -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
 
-	VarId  -/- [A-Za-z0-9\$\_]
-	TypeId -/- [A-Za-z0-9\$\_]
+RASSOC-LETTER-OP      -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-BAR-OP         -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-CIRCUMFLEX-OP  -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-AMPERSAND-OP   -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-BRACKET-OP     -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-CMPR-OP        -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-COLON-OP       -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-SUM-OP         -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-MULT-OP        -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+RASSOC-SPECIAL-OP     -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
 
-	VarIdUSS -/-  [A-Za-z0-9\$\_] \/ [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	TypeIdUSS -/- [A-Za-z0-9\$\_] \/ [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+VAR-ID   -/- [A-Za-z0-9\$\_]
+CONST-ID -/- [A-Za-z0-9\$\_]
 
-	"abstract" -/- [a-zA-Z0-9\$\_]
-	"case"     -/- [a-zA-Z0-9\$\_]
-	"catch"    -/- [a-zA-Z0-9\$\_]
-	"class"    -/- [a-zA-Z0-9\$\_]
-	"def"      -/- [a-zA-Z0-9\$\_]
-	"do"       -/- [a-zA-Z0-9\$\_]
-	"else"     -/- [a-zA-Z0-9\$\_]
-	"extends"  -/- [a-zA-Z0-9\$\_]
-	"false"    -/- [a-zA-Z0-9\$\_]
-	"final"    -/- [a-zA-Z0-9\$\_]
-	"finally"  -/- [a-zA-Z0-9\$\_]
-	"for"      -/- [a-zA-Z0-9\$\_]
-	"forSome"  -/- [a-zA-Z0-9\$\_]
-	"if"       -/- [a-zA-Z0-9\$\_]
-	"implicit" -/- [a-zA-Z0-9\$\_]
-	"import"   -/- [a-zA-Z0-9\$\_]
-	"lazy"     -/- [a-zA-Z0-9\$\_]
-	"macro"    -/- [a-zA-Z0-9\$\_]
-	"match"    -/- [a-zA-Z0-9\$\_]
-	"new"      -/- [a-zA-Z0-9\$\_]
-	"null"     -/- [a-zA-Z0-9\$\_]
-	"object"   -/- [a-zA-Z0-9\$\_]
-	"override" -/- [a-zA-Z0-9\$\_]
-	"package"  -/- [a-zA-Z0-9\$\_]
-	"private"  -/- [a-zA-Z0-9\$\_]
-	"protected"-/- [a-zA-Z0-9\$\_]
-	"return"   -/- [a-zA-Z0-9\$\_]
-	"sealed"   -/- [a-zA-Z0-9\$\_]
-	"super"    -/- [a-zA-Z0-9\$\_]
-	"this"     -/- [a-zA-Z0-9\$\_]
-	"throw"    -/- [a-zA-Z0-9\$\_]
-	"trait"    -/- [a-zA-Z0-9\$\_]
-	"try"      -/- [a-zA-Z0-9\$\_]
-	"true"     -/- [a-zA-Z0-9\$\_]
-	"type"     -/- [a-zA-Z0-9\$\_]
-	"val"      -/- [a-zA-Z0-9\$\_]
-	"var"      -/- [a-zA-Z0-9\$\_]
-	"while"    -/- [a-zA-Z0-9\$\_]
-	"with"     -/- [a-zA-Z0-9\$\_]
-	"yield"    -/- [a-zA-Z0-9\$\_]
+VAR-ID-USS   -/- [A-Za-z0-9\$\_] \/ [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+CONST-ID-USS -/- [A-Za-z0-9\$\_] \/ [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
 
-	"=" -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	":" -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
-	"_" -/- [a-zA-Z0-9\_\$]
+"abstract" -/- [a-zA-Z0-9\$\_]
+"case"     -/- [a-zA-Z0-9\$\_]
+"catch"    -/- [a-zA-Z0-9\$\_]
+"class"    -/- [a-zA-Z0-9\$\_]
+"def"      -/- [a-zA-Z0-9\$\_]
+"do"       -/- [a-zA-Z0-9\$\_]
+"else"     -/- [a-zA-Z0-9\$\_]
+"extends"  -/- [a-zA-Z0-9\$\_]
+"false"    -/- [a-zA-Z0-9\$\_]
+"final"    -/- [a-zA-Z0-9\$\_]
+"finally"  -/- [a-zA-Z0-9\$\_]
+"for"      -/- [a-zA-Z0-9\$\_]
+"forSome"  -/- [a-zA-Z0-9\$\_]
+"if"       -/- [a-zA-Z0-9\$\_]
+"implicit" -/- [a-zA-Z0-9\$\_]
+"import"   -/- [a-zA-Z0-9\$\_]
+"lazy"     -/- [a-zA-Z0-9\$\_]
+"macro"    -/- [a-zA-Z0-9\$\_]
+"match"    -/- [a-zA-Z0-9\$\_]
+"new"      -/- [a-zA-Z0-9\$\_]
+"null"     -/- [a-zA-Z0-9\$\_]
+"object"   -/- [a-zA-Z0-9\$\_]
+"override" -/- [a-zA-Z0-9\$\_]
+"package"  -/- [a-zA-Z0-9\$\_]
+"private"  -/- [a-zA-Z0-9\$\_]
+"protected"-/- [a-zA-Z0-9\$\_]
+"return"   -/- [a-zA-Z0-9\$\_]
+"sealed"   -/- [a-zA-Z0-9\$\_]
+"super"    -/- [a-zA-Z0-9\$\_]
+"this"     -/- [a-zA-Z0-9\$\_]
+"throw"    -/- [a-zA-Z0-9\$\_]
+"trait"    -/- [a-zA-Z0-9\$\_]
+"try"      -/- [a-zA-Z0-9\$\_]
+"true"     -/- [a-zA-Z0-9\$\_]
+"type"     -/- [a-zA-Z0-9\$\_]
+"val"      -/- [a-zA-Z0-9\$\_]
+"var"      -/- [a-zA-Z0-9\$\_]
+"while"    -/- [a-zA-Z0-9\$\_]
+"with"     -/- [a-zA-Z0-9\$\_]
+"yield"    -/- [a-zA-Z0-9\$\_]
 
-	Prefix -/- [\+\-\~\!]
-	MinusPrefix -/- [0-9]
+"=" -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+":" -/- [\!\#\%\&\*\+\-\/\:\<\=\>\?\@\\\^\|\~]
+"_" -/- [a-zA-Z0-9\_\$]
 
-	FancyId -/- [a-zA-Z0-9\_\$]
+PREFIX -/- [\+\-\~\!]
+MINUS-PREFIX -/- [0-9]
+
+FANCY-ID -/- [a-zA-Z0-9\_\$]
 
 context-free syntax
-	PlainId -> Id {cons("Id")}
+PLAIN-ID -> Id {cons("Id")}
 
 module Scala-Expressions
 
 imports
-	Scala-Annotations
-	Scala-BasicDeclsDefs
-	Scala-ClassesObjects
-	Scala-Literals
-	Scala-PatternMatching
-	Scala-Types
-	Scala-Whitespace
+Scala-Annotations
+Scala-BasicDeclsDefs
+Scala-ClassesObjects
+Scala-Literals
+Scala-PatternMatching
+Scala-Types
+Scala-Whitespace
 
 exports
-	lexical syntax
-		-> EOC
 
-	context-free restrictions
-		EOC -/- ~[c]
+lexical syntax
+-> EOC
 
-
-	%%%%% With Layout %%%%%%
-	context-free priorities
-		{
-			"_"                    -> Expr {cons("WildcardExpr")}
-			Literal                -> Expr {prefer}
-			Path                   -> Expr
-			Expr ArgumentExprs     -> Expr {cons("AppExpr"), layout("1.last.line == 2.first.line")}
-			Expr BlockExpr         -> Expr {cons("BlockAppExpr"), layout("2.first.line - 1.last.line < num(2)")}
-			"(" {NoLExpr ","}* ")" -> Expr {cons("TupleExpr")}
-			Expr TypeArgs          -> Expr {cons("TypeApplication")}
-		}
-
-		> {
-			"new" ClassTemplate -> Expr {cons("NewClassExpr"), prefer}
-			"new" TemplateBody  -> Expr {cons("NewTemplateExpr"), prefer}
-			BlockExpr           -> Expr
-			Expr "_"            -> Expr {cons("EtaExpansionExpr"), left, layout("1.last.line == 2.first.line")}
-		}
-
-		> Prefix Expr             -> Expr {cons("PrefixExpr"), prefer}
-		> Expr SpecialOp Expr     -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr MultOp Expr        -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr SumOp Expr         -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr ColonOp Expr       -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr AssignOp Expr      -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr BracketOp Expr     -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr AmpersandOp Expr   -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr CircumflexOp Expr  -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr BarOp Expr         -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr LetterOp Expr      -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		> Expr Id                 -> Expr {cons("PostfixExpr"), avoid, layout("1.last.line == 2.first.line")}
-		> Expr Id                 -> Expr {cons("PostfixExpr"), avoid, layout("1.last.line == 2.first.line")}
-		> Expr "match" "{" CaseClause+ "}" -> Expr {cons("MatchExpr")}
-		> Expr ArgumentExprs "=" Expr      -> Expr {cons("AccessAssignmentExpr"), non-assoc}
-		<0> > Expr "." Id "=" Expr         -> Expr {cons("DesignatorAssignmentExpr"), non-assoc}
-		<0> > {
-			Bindings "=>" Expr                                                   -> Expr {cons("FunExpr"), prefer}
-			Id "=>" Expr                                                         -> Expr {cons("IdFunExpr"), prefer}
-			"implicit" Id "=>" Expr                                              -> Expr {cons("ImplicitFunExpr"), prefer}
-			"_" "=>" Expr                                                        -> Expr {cons("WildcardFunExpr"), prefer}
-			"if" "(" NoLExpr ")" Expr                                            -> Expr {cons("IfExpr"), prefer}
-			"if" "(" NoLExpr ")" Expr "else" Expr                                -> Expr {cons("IfElseExpr")}
-			"if" "(" NoLExpr ")" Expr ";" "else" Expr                            -> Expr {cons("IfElseExpr")}
-			"while" "(" NoLExpr ")" Expr                                         -> Expr {cons("WhileExpr")}
-			"try" Expr                                                           -> Expr {cons("TryExpr"), prefer}
-			"try" Expr "catch" Expr                                              -> Expr {cons("TryCatchExpr")}
-			"try" Expr "finally" Expr                                            -> Expr {cons("TryFinallyExpr")}
-			"try" Expr "catch" Expr "finally" Expr                               -> Expr {cons("TryCatchFinallyExpr"), avoid}
-			"do" Expr ";" "while" "(" Expr ")"                                   -> Expr {cons("DoWhileExpr")}
-			"do" Expr "while" "(" Expr ")"                                       -> Expr {cons("DoWhileExpr")}
-			"for" "(" EnumeratorSemi+ ")" Expr                                   -> Expr {cons("ForExpr")}
-			"for" "{" EnumeratorSemi+ "}" Expr                                   -> Expr {cons("ForExpr")}
-			"for" "(" EnumeratorSemi+ ")" "yield" Expr                           -> Expr {cons("ForYieldExpr")}
-			"for" "{" EnumeratorSemi+ "}" "yield" Expr                           -> Expr {cons("ForYieldExpr")}
-			"throw" Expr                                                         -> Expr {cons("ThrowExpr")}
-			"return" Expr?                                                       -> Expr {cons("ReturnExpr"), layout("1.last.line == 2.first.line")}
-			Id "=" Expr                                                          -> Expr {cons("AssignmentExpr"), non-assoc}
-			Expr Ascription                                                      -> Expr {cons("AscriptionExpr"), avoid}
-		}
-
-	context-free priorities
-		Expr "." Id        -> Expr {cons("DesignatorExpr"), avoid}
-		> Prefix Expr      -> Expr {cons("PrefixExpr")}
+context-free restrictions
+EOC -/- ~[c]
 
 
-	%%%%% NO Layout %%%%%%
-	context-free priorities
-		{
-			"_"                    -> NoLExpr {cons("WildcardExpr")}
-			Literal                -> NoLExpr {prefer}
-			Path                   -> NoLExpr
-			NoLExpr ArgumentExprs  -> NoLExpr {cons("AppExpr")}
-			NoLExpr BlockExpr      -> NoLExpr {cons("BlockAppExpr")}
-			"(" {NoLExpr ","}* ")" -> NoLExpr {cons("TupleExpr")}
-			NoLExpr TypeArgs       -> NoLExpr {cons("TypeApplication")}
-		}
+%%%%% With Layout %%%%%%
+context-free priorities
+{
+  Literal                -> Expr                                        {prefer}
+  "_"                    -> Expr                                {cons("WildcardExpr")}
+  Expr ArgumentExprs     -> Expr                                     {cons("AppExpr"),
+                                          layout("1.last.line == 2.first.line")}
+  Expr BlockExpr         -> Expr                                {cons("BlockAppExpr"),
+                                  layout("2.first.line - 1.last.line < num(2)")}
+  "(" {NoLExpr ","}* ")" -> Expr                                   {cons("TupleExpr")}
+  Expr TypeArgs          -> Expr                             {cons("TypeApplication")}
+  Path                   -> Expr
+}
 
-		> {
-			"new" ClassTemplate -> NoLExpr {cons("NewClassExpr"), prefer}
-			"new" TemplateBody  -> NoLExpr {cons("NewTemplateExpr"), prefer}
-			BlockExpr           -> NoLExpr
-			NoLExpr "_"         -> NoLExpr {cons("EtaExpansionExpr"), left}
-		}
+> {
+  "new" ClassTemplate -> Expr                           {prefer, cons("NewClassExpr")}
+  "new" TemplateBody  -> Expr                        {prefer, cons("NewTemplateExpr")}
+  Expr "_"            -> Expr                         {left, cons("EtaExpansionExpr"),
+                                          layout("1.last.line == 2.first.line")}
+  BlockExpr           -> Expr
+}
 
-		> Prefix NoLExpr               -> NoLExpr {cons("PrefixExpr"), prefer}
-		> NoLExpr SpecialOp NoLExpr    -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr MultOp NoLExpr       -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr SumOp NoLExpr        -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr ColonOp NoLExpr      -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr AssignOp NoLExpr     -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr BracketOp NoLExpr    -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr AmpersandOp NoLExpr  -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr CircumflexOp NoLExpr -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr BarOp NoLExpr        -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr LetterOp NoLExpr     -> NoLExpr {cons("InfixExpr"), left}
-		> NoLExpr Id                   -> NoLExpr {cons("PostfixExpr"), avoid}
-		> NoLExpr Id                   -> NoLExpr {cons("PostfixExpr"), avoid}
-		> NoLExpr "match" "{" CaseClause+ "}" -> NoLExpr {cons("MatchExpr")}
-		> NoLExpr ArgumentExprs "=" NoLExpr   -> NoLExpr {cons("AccessAssignmentExpr"), non-assoc}
-		<0> > NoLExpr "." Id "=" NoLExpr      -> NoLExpr {cons("DesignatorAssignmentExpr"), non-assoc}
-		<0> > {
-			Bindings "=>" NoLExpr                                                   -> NoLExpr {cons("FunExpr"), prefer}
-			Id "=>" NoLExpr                                                         -> NoLExpr {cons("IdFunExpr"), prefer}
-			"implicit" Id "=>" NoLExpr                                              -> NoLExpr {cons("ImplicitFunExpr"), prefer}
-			"_" "=>" NoLExpr                                                        -> NoLExpr {cons("WildcardFunExpr"), prefer}
-			"if" "(" NoLExpr ")" NoLExpr                                            -> NoLExpr {cons("IfExpr"), prefer}
-			"if" "(" NoLExpr ")" NoLExpr "else" NoLExpr                             -> NoLExpr {cons("IfElseExpr")}
-			"if" "(" NoLExpr ")" NoLExpr ";" "else" NoLExpr                         -> NoLExpr {cons("IfElseExpr")}
-			"while" "(" NoLExpr ")" NoLExpr                                         -> NoLExpr {cons("WhileExpr")}
-			"try" NoLExpr                                                           -> NoLExpr {cons("TryExpr")}
-			"try" NoLExpr "catch" NoLExpr                                           -> NoLExpr {cons("TryCatchExpr")}
-			"try" NoLExpr "finally" NoLExpr                                         -> NoLExpr {cons("TryFinallyExpr")}
-			"try" NoLExpr "catch" NoLExpr "finally" NoLExpr                         -> NoLExpr {cons("TryCatchFinallyExpr")}
-			"do" NoLExpr ";" "while" "(" NoLExpr ")"                                -> NoLExpr {cons("DoWhileExpr")}
-			"do" NoLExpr "while" "(" NoLExpr ")"                                    -> NoLExpr {cons("DoWhileExpr")}
-			"for" "(" EnumeratorSemi+ ")" NoLExpr                                   -> NoLExpr {cons("ForExpr")}
-			"for" "{" EnumeratorSemi+ "}" NoLExpr                                   -> NoLExpr {cons("ForExpr")}
-			"for" "(" EnumeratorSemi+ ")" "yield" NoLExpr                           -> NoLExpr {cons("ForYieldExpr")}
-			"for" "{" EnumeratorSemi+ "}" "yield" NoLExpr                           -> NoLExpr {cons("ForYieldExpr")}
-			"throw" NoLExpr                                                         -> NoLExpr {cons("ThrowExpr")}
-			"return" NoLExpr?                                                       -> NoLExpr {cons("ReturnExpr"), layout("1.last.line == 2.first.line")}
-			NoLExpr Ascription                                                      -> NoLExpr {cons("AscriptionExpr"), avoid}
-			Id "=" NoLExpr                                                          -> NoLExpr {cons("AssignmentExpr"), non-assoc}
-		}
+> PREFIX Expr             -> Expr                                 {cons("PrefixExpr"),
+                                  prefer, layout("1.last.line == 2.first.line")}
+> PREFIX Expr             -> Expr                                 {cons("PrefixExpr"),
+                                  prefer, layout("1.last.line == 2.first.line")}
+> {
+  Expr SPECIAL-OP Expr        -> Expr                        {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-SPECIAL-OP Expr -> Expr                       {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr MULT-OP Expr        -> Expr                           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-MULT-OP Expr -> Expr                          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr SUM-OP Expr        -> Expr                            {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-SUM-OP Expr -> Expr                           {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr COLON-OP Expr        -> Expr                          {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-COLON-OP Expr -> Expr                         {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr CMPR-OP Expr        -> Expr                           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-CMPR-OP Expr -> Expr                          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr BRACKET-OP Expr        -> Expr                        {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-BRACKET-OP Expr -> Expr                       {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr AMPERSAND-OP Expr        -> Expr                      {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-AMPERSAND-OP Expr -> Expr                     {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr CIRCUMFLEX-OP Expr        -> Expr                     {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-CIRCUMFLEX-OP Expr -> Expr                    {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr BAR-OP Expr        -> Expr                            {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-BAR-OP Expr -> Expr                           {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> {
+  Expr LETTER-OP Expr        -> Expr                         {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+  Expr RASSOC-LETTER-OP Expr -> Expr                        {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+}
+> Expr ASSIGN-OP Expr     -> Expr                            {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+> Expr Id -> Expr  {avoid, layout("1.last.line == 2.first.line"), cons("PostfixExpr")}
+> Expr Id -> Expr  {avoid, layout("1.last.line == 2.first.line"), cons("PostfixExpr")}
+> Expr "match" "{" CaseClause+ "}" -> Expr                         {cons("MatchExpr")}
+> Expr ArgumentExprs "=" Expr -> Expr        {non-assoc, cons("AccessAssignmentExpr")}
+<0> > Expr "." Id "=" Expr    -> Expr    {non-assoc, cons("DesignatorAssignmentExpr")}
+<0> > {
+  Bindings "=>" Expr                         -> Expr         {prefer, cons("FunExpr")}
+  Id "=>" Expr                               -> Expr       {prefer, cons("IdFunExpr")}
+  "implicit" Id "=>" Expr                    -> Expr {prefer, cons("ImplicitFunExpr")}
+  "_" "=>" Expr                              -> Expr {prefer, cons("WildcardFunExpr")}
+  "if" "(" NoLExpr ")" Expr                  -> Expr          {prefer, cons("IfExpr")}
+  "if" "(" NoLExpr ")" Expr "else" Expr      -> Expr              {cons("IfElseExpr")}
+  "if" "(" NoLExpr ")" Expr ";" "else" Expr  -> Expr              {cons("IfElseExpr")}
+  "while" "(" NoLExpr ")" Expr               -> Expr               {cons("WhileExpr")}
+  "try" Expr                                 -> Expr         {prefer, cons("TryExpr")}
+  "try" Expr "catch" Expr                    -> Expr            {cons("TryCatchExpr")}
+  "try" Expr "finally" Expr                  -> Expr          {cons("TryFinallyExpr")}
+  "try" Expr "catch" Expr "finally" Expr     -> Expr     {cons("TryCatchFinallyExpr"),
+                                                                          avoid}
+  "do" Expr ";" "while" "(" Expr ")"         -> Expr             {cons("DoWhileExpr")}
+  "do" Expr "while" "(" Expr ")"             -> Expr             {cons("DoWhileExpr")}
+  "for" "(" EnumeratorSemi+ ")" Expr         -> Expr                 {cons("ForExpr")}
+  "for" "{" EnumeratorSemi+ "}" Expr         -> Expr                 {cons("ForExpr")}
+  "for" "(" EnumeratorSemi+ ")" "yield" Expr -> Expr            {cons("ForYieldExpr")}
+  "for" "{" EnumeratorSemi+ "}" "yield" Expr -> Expr            {cons("ForYieldExpr")}
+  "throw" Expr                               -> Expr               {cons("ThrowExpr")}
+  "return" Expr?                             -> Expr              {cons("ReturnExpr"),
+                                          layout("1.last.line == 2.first.line")}
+  Id "=" Expr                              -> Expr {non-assoc, cons("AssignmentExpr")}
+  Expr Ascription                          -> Expr     {avoid, cons("AscriptionExpr")}
+}
 
-	context-free priorities
-		NoLExpr "." Id        -> NoLExpr {cons("DesignatorExpr"), avoid}
-		> Prefix NoLExpr      -> NoLExpr {cons("PrefixExpr")}
-
-	%%%%% Repeat Priorities in context-free syntax for correct PPTable generation %%%%%
-	context-free syntax
-		"_"                                          -> Expr {cons("WildcardExpr")}
-		Expr ArgumentExprs                           -> Expr {cons("AppExpr"), layout("1.last.line == 2.first.line")}
-		Expr BlockExpr                               -> Expr {cons("BlockAppExpr"), layout("2.first.line - 1.last.line < num(2)")}
-		"(" {NoLExpr ","}* ")"                       -> Expr {cons("TupleExpr")}
-		Expr TypeArgs                                -> Expr {cons("TypeApplication")}
-		"new" ClassTemplate                          -> Expr {cons("NewClassExpr"), prefer}
-		"new" TemplateBody                           -> Expr {cons("NewTemplateExpr"), prefer}
-		Expr "_"                                     -> Expr {cons("EtaExpansionExpr"), left, layout("1.last.line == 2.first.line")}
-		Prefix Expr                                  -> Expr {cons("PrefixExpr"), prefer}
-		Expr SpecialOp Expr                          -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr MultOp Expr                             -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr SumOp Expr                              -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr ColonOp Expr                            -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr AssignOp Expr                           -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr BracketOp Expr                          -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr AmpersandOp Expr                        -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr CircumflexOp Expr                       -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr BarOp Expr                              -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr LetterOp Expr                           -> Expr {cons("InfixExpr"), left, layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
-		Expr Id                                      -> Expr {cons("PostfixExpr"), avoid, layout("1.last.line == 2.first.line")}
-		Expr "match" "{" CaseClause+ "}"             -> Expr {cons("MatchExpr")}
-		Expr ArgumentExprs "=" Expr                  -> Expr {cons("AccessAssignmentExpr"), non-assoc}
-		Expr "." Id "=" Expr                         -> Expr {cons("DesignatorAssignmentExpr"), non-assoc}
-		Bindings "=>" Expr                           -> Expr {cons("FunExpr"), prefer}
-		Id "=>" Expr                                 -> Expr {cons("IdFunExpr"), prefer}
-		"implicit" Id "=>" Expr                      -> Expr {cons("ImplicitFunExpr"), prefer}
-		"_" "=>" Expr                                -> Expr {cons("WildcardFunExpr"), prefer}
-		"if" "(" NoLExpr ")" Expr                    -> Expr {cons("IfExpr"), prefer}
-		"if" "(" NoLExpr ")" Expr "else" Expr        -> Expr {cons("IfElseExpr")}
-		"if" "(" NoLExpr ")" Expr ";" "else" Expr    -> Expr {cons("IfElseExpr")}
-		"while" "(" NoLExpr ")" Expr                 -> Expr {cons("WhileExpr")}
-		"try" Expr                                   -> Expr {cons("TryExpr"), prefer}
-		"try" Expr "catch" Expr                      -> Expr {cons("TryCatchExpr")}
-		"try" Expr "finally" Expr                    -> Expr {cons("TryFinallyExpr")}
-		"try" Expr "catch" Expr "finally" Expr       -> Expr {cons("TryCatchFinallyExpr"), avoid}
-		"do" Expr ";" "while" "(" Expr ")"           -> Expr {cons("DoWhileExpr")}
-		"do" Expr "while" "(" Expr ")"               -> Expr {cons("DoWhileExpr")}
-		"for" "(" EnumeratorSemi+ ")" Expr           -> Expr {cons("ForExpr")}
-		"for" "{" EnumeratorSemi+ "}" Expr           -> Expr {cons("ForExpr")}
-		"for" "(" EnumeratorSemi+ ")" "yield" Expr   -> Expr {cons("ForYieldExpr")}
-		"for" "{" EnumeratorSemi+ "}" "yield" Expr   -> Expr {cons("ForYieldExpr")}
-		"throw" Expr                                 -> Expr {cons("ThrowExpr")}
-		"return" Expr?                               -> Expr {cons("ReturnExpr"), layout("1.last.line == 2.first.line")}
-		Id "=" Expr                                  -> Expr {cons("AssignmentExpr"), non-assoc}
-		Expr Ascription                              -> Expr {cons("AscriptionExpr"), avoid}
-		Expr "." Id                                  -> Expr {cons("DesignatorExpr"), avoid}
-		Prefix Expr                                  -> Expr {cons("PrefixExpr")}
-
-		"_"                                              -> NoLExpr {cons("WildcardExpr")}
-		Literal                                          -> NoLExpr {prefer}
-		NoLExpr ArgumentExprs                            -> NoLExpr {cons("AppExpr")}
-		NoLExpr BlockExpr                                -> NoLExpr {cons("BlockAppExpr")}
-		"(" {NoLExpr ","}* ")"                           -> NoLExpr {cons("TupleExpr")}
-		NoLExpr TypeArgs                                 -> NoLExpr {cons("TypeApplication")}
-		"new" ClassTemplate                              -> NoLExpr {cons("NewClassExpr"), prefer}
-		"new" TemplateBody                               -> NoLExpr {cons("NewTemplateExpr"), prefer}
-		NoLExpr "_"                                      -> NoLExpr {cons("EtaExpansionExpr"), left}
-		Prefix NoLExpr                                   -> NoLExpr {cons("PrefixExpr"), prefer}
-		NoLExpr SpecialOp NoLExpr                        -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr MultOp NoLExpr                           -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr SumOp NoLExpr                            -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr ColonOp NoLExpr                          -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr AssignOp NoLExpr                         -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr BracketOp NoLExpr                        -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr AmpersandOp NoLExpr                      -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr CircumflexOp NoLExpr                     -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr BarOp NoLExpr                            -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr LetterOp NoLExpr                         -> NoLExpr {cons("InfixExpr"), left}
-		NoLExpr Id                                       -> NoLExpr {cons("PostfixExpr"), avoid}
-		NoLExpr Id                                       -> NoLExpr {cons("PostfixExpr"), avoid}
-		NoLExpr "match" "{" CaseClause+ "}"              -> NoLExpr {cons("MatchExpr")}
-		NoLExpr ArgumentExprs "=" NoLExpr                -> NoLExpr {cons("AccessAssignmentExpr"), non-assoc}
-		NoLExpr "." Id "=" NoLExpr                       -> NoLExpr {cons("DesignatorAssignmentExpr"), non-assoc}
-		Bindings "=>" NoLExpr                            -> NoLExpr {cons("FunExpr"), prefer}
-		Id "=>" NoLExpr                                  -> NoLExpr {cons("IdFunExpr"), prefer}
-		"implicit" Id "=>" NoLExpr                       -> NoLExpr {cons("ImplicitFunExpr"), prefer}
-		"_" "=>" NoLExpr                                 -> NoLExpr {cons("WildcardFunExpr"), prefer}
-		"if" "(" NoLExpr ")" NoLExpr                     -> NoLExpr {cons("IfExpr"), prefer}
-		"if" "(" NoLExpr ")" NoLExpr "else" NoLExpr      -> NoLExpr {cons("IfElseExpr")}
-		"if" "(" NoLExpr ")" NoLExpr ";" "else" NoLExpr  -> NoLExpr {cons("IfElseExpr")}
-		"while" "(" NoLExpr ")" NoLExpr                  -> NoLExpr {cons("WhileExpr")}
-		"try" NoLExpr                                    -> NoLExpr {cons("TryExpr")}
-		"try" NoLExpr "catch" NoLExpr                    -> NoLExpr {cons("TryCatchExpr")}
-		"try" NoLExpr "finally" NoLExpr                  -> NoLExpr {cons("TryFinallyExpr")}
-		"try" NoLExpr "catch" NoLExpr "finally" NoLExpr  -> NoLExpr {cons("TryCatchFinallyExpr")}
-		"do" NoLExpr ";" "while" "(" NoLExpr ")"         -> NoLExpr {cons("DoWhileExpr")}
-		"do" NoLExpr "while" "(" NoLExpr ")"             -> NoLExpr {cons("DoWhileExpr")}
-		"for" "(" EnumeratorSemi+ ")" NoLExpr            -> NoLExpr {cons("ForExpr")}
-		"for" "{" EnumeratorSemi+ "}" NoLExpr            -> NoLExpr {cons("ForExpr")}
-		"for" "(" EnumeratorSemi+ ")" "yield" NoLExpr    -> NoLExpr {cons("ForYieldExpr")}
-		"for" "{" EnumeratorSemi+ "}" "yield" NoLExpr    -> NoLExpr {cons("ForYieldExpr")}
-		"throw" NoLExpr                                  -> NoLExpr {cons("ThrowExpr")}
-		"return" NoLExpr?                                -> NoLExpr {cons("ReturnExpr"), layout("1.last.line == 2.first.line")}
-		NoLExpr Ascription                               -> NoLExpr {cons("AscriptionExpr"), avoid}
-		Id "=" NoLExpr                                   -> NoLExpr {cons("AssignmentExpr"), non-assoc}
-		NoLExpr "." Id                                   -> NoLExpr {cons("DesignatorExpr"), avoid}
-		Prefix NoLExpr                                   -> NoLExpr {cons("PrefixExpr")}
+context-free priorities
+  Expr "." Id   -> Expr                                {avoid, cons("DesignatorExpr")}
+  > PREFIX Expr -> Expr                                           {cons("PrefixExpr")}
 
 
-	%%%%% Common %%%%%%
-	context-free syntax
-		"(" NoLExprs? ")"                               -> ArgumentExprs {cons("ArgumentExprs")}
-		"(" (NoLExprs ",")? NoLExpr ":" "_" "*" ")"     -> ArgumentExprs {cons("SequenceArgumentExprs"), prefer}
+%%%%% NO Layout %%%%%%
+context-free priorities
+{
+  Literal                   -> NoLExpr                                  {prefer}
+  "_"                       -> NoLExpr                          {cons("WildcardExpr")}
+  NoLExpr ArgumentExprs     -> NoLExpr                               {cons("AppExpr")}
+  NoLExpr BlockExpr         -> NoLExpr                          {cons("BlockAppExpr")}
+  "(" {NoLExpr ","}* ")"    -> NoLExpr                             {cons("TupleExpr")}
+  NoLExpr TypeArgs          -> NoLExpr                       {cons("TypeApplication")}
+  Path                      -> NoLExpr
+}
 
-		ArgumentExprs                  -> ArgumentExprsSeq
-		ArgumentExprs ArgumentExprsSeq -> ArgumentExprsSeq {cons("ArgumentExprsSeq"), layout("1.last.line == 2.first.line")}
+> {
+  "new" ClassTemplate -> NoLExpr                        {prefer, cons("NewClassExpr")}
+  "new" TemplateBody  -> NoLExpr                     {prefer, cons("NewTemplateExpr")}
+  NoLExpr "_"         -> NoLExpr                      {left, cons("EtaExpansionExpr")}
+  BlockExpr           -> NoLExpr
+}
 
-		{NoLExpr ","}+ -> NoLExprs {cons("Exprs")}
+> PREFIX NoLExpr             -> NoLExpr                           {cons("PrefixExpr")}
+> PREFIX NoLExpr             -> NoLExpr                           {cons("PrefixExpr")}
+> {
+  NoLExpr SPECIAL-OP NoLExpr        -> NoLExpr               {left, cons("InfixExpr")}
+  NoLExpr RASSOC-SPECIAL-OP NoLExpr -> NoLExpr              {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr MULT-OP NoLExpr        -> NoLExpr                  {left, cons("InfixExpr")}
+  NoLExpr RASSOC-MULT-OP NoLExpr -> NoLExpr                 {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr SUM-OP NoLExpr        -> NoLExpr                   {left, cons("InfixExpr")}
+  NoLExpr RASSOC-SUM-OP NoLExpr -> NoLExpr                  {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr COLON-OP NoLExpr        -> NoLExpr                 {left, cons("InfixExpr")}
+  NoLExpr RASSOC-COLON-OP NoLExpr -> NoLExpr                {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr CMPR-OP NoLExpr        -> NoLExpr                  {left, cons("InfixExpr")}
+  NoLExpr RASSOC-CMPR-OP NoLExpr -> NoLExpr                 {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr BRACKET-OP NoLExpr        -> NoLExpr               {left, cons("InfixExpr")}
+  NoLExpr RASSOC-BRACKET-OP NoLExpr -> NoLExpr              {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr AMPERSAND-OP NoLExpr        -> NoLExpr             {left, cons("InfixExpr")}
+  NoLExpr RASSOC-AMPERSAND-OP NoLExpr -> NoLExpr            {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr CIRCUMFLEX-OP NoLExpr        -> NoLExpr            {left, cons("InfixExpr")}
+  NoLExpr RASSOC-CIRCUMFLEX-OP NoLExpr -> NoLExpr           {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr BAR-OP NoLExpr        -> NoLExpr                   {left, cons("InfixExpr")}
+  NoLExpr RASSOC-BAR-OP NoLExpr -> NoLExpr                  {right, cons("InfixExpr")}
+}
+> {
+  NoLExpr LETTER-OP NoLExpr        -> NoLExpr                {left, cons("InfixExpr")}
+  NoLExpr RASSOC-LETTER-OP NoLExpr -> NoLExpr               {right, cons("InfixExpr")}
+}
+> NoLExpr ASSIGN-OP NoLExpr     -> NoLExpr                   {left, cons("InfixExpr")}
+> NoLExpr Id -> NoLExpr                                   {avoid, cons("PostfixExpr")}
+> NoLExpr Id -> NoLExpr                                   {avoid, cons("PostfixExpr")}
+> NoLExpr "match" "{" CaseClause+ "}" -> NoLExpr                   {cons("MatchExpr")}
+> NoLExpr ArgumentExprs "=" NoLExpr   -> NoLExpr        {cons("AccessAssignmentExpr"),
+                                                                      non-assoc}
+<0> > NoLExpr "." Id "=" NoLExpr    -> NoLExpr      {cons("DesignatorAssignmentExpr"),
+                                                                      non-assoc}
+<0> > {
+  Bindings "=>" NoLExpr              -> NoLExpr              {prefer, cons("FunExpr")}
+  Id "=>" NoLExpr                    -> NoLExpr            {prefer, cons("IdFunExpr")}
+  "implicit" Id "=>" NoLExpr         -> NoLExpr      {prefer, cons("ImplicitFunExpr")}
+  "_" "=>" NoLExpr                   -> NoLExpr      {prefer, cons("WildcardFunExpr")}
+  "if" "(" NoLExpr ")" NoLExpr       -> NoLExpr               {prefer, cons("IfExpr")}
+  "if" "(" NoLExpr ")" NoLExpr
+    "else" NoLExpr                   -> NoLExpr                   {cons("IfElseExpr")}
+  "if" "(" NoLExpr ")" NoLExpr
+    ";" "else" NoLExpr               -> NoLExpr                   {cons("IfElseExpr")}
+  "while" "(" NoLExpr ")" NoLExpr    -> NoLExpr                    {cons("WhileExpr")}
+  "try" NoLExpr                      -> NoLExpr              {prefer, cons("TryExpr")}
+  "try" NoLExpr "catch" NoLExpr      -> NoLExpr                 {cons("TryCatchExpr")}
+  "try" NoLExpr "finally" NoLExpr    -> NoLExpr               {cons("TryFinallyExpr")}
+  "try" NoLExpr "catch" NoLExpr
+    "finally" NoLExpr                -> NoLExpr   {avoid, cons("TryCatchFinallyExpr")}
+  "do" NoLExpr ";" "while" "(" NoLExpr ")"      -> NoLExpr       {cons("DoWhileExpr")}
+  "do" NoLExpr "while" "(" NoLExpr ")"          -> NoLExpr       {cons("DoWhileExpr")}
+  "for" "(" EnumeratorSemi+ ")" NoLExpr         -> NoLExpr           {cons("ForExpr")}
+  "for" "{" EnumeratorSemi+ "}" NoLExpr         -> NoLExpr           {cons("ForExpr")}
+  "for" "(" EnumeratorSemi+ ")" "yield" NoLExpr -> NoLExpr      {cons("ForYieldExpr")}
+  "for" "{" EnumeratorSemi+ "}" "yield" NoLExpr -> NoLExpr      {cons("ForYieldExpr")}
+  "throw" NoLExpr                               -> NoLExpr         {cons("ThrowExpr")}
+  "return" NoLExpr?                             -> NoLExpr        {cons("ReturnExpr")}
+  Id "=" NoLExpr                        -> NoLExpr {non-assoc, cons("AssignmentExpr")}
+  NoLExpr Ascription                    -> NoLExpr     {avoid, cons("AscriptionExpr")}
+}
 
-		":" InfixType   -> Ascription {cons("TypeAscription")}
-		":" Annotation+ -> Ascription {cons("AnnotationAscription")}
-		":" "_" "*"     -> Ascription {cons("SequenceAscription")}
+context-free priorities
+NoLExpr "." Id   -> NoLExpr                            {avoid, cons("DesignatorExpr")}
+> PREFIX NoLExpr -> NoLExpr                                       {cons("PrefixExpr")}
 
-		Pattern1 "<-" Expr Guard?       -> Generator {cons("Generator")}
-		"val" Pattern1 "<-" Expr Guard? -> Generator {cons("Generator")}
 
-		"if" NoLExpr -> Guard {cons("Guard")}
+%%% Repeat Priorities in context-free syntax for correct PPTable generation %%%
+context-free syntax
+"_"                                        -> Expr              {cons("WildcardExpr")}
+Expr ArgumentExprs                         -> Expr                   {cons("AppExpr"),
+                                          layout("1.last.line == 2.first.line")}
+Expr BlockExpr                             -> Expr              {cons("BlockAppExpr"),
+                                  layout("2.first.line - 1.last.line < num(2)")}
+"(" {NoLExpr ","}* ")"                     -> Expr                 {cons("TupleExpr")}
+Expr TypeArgs                              -> Expr           {cons("TypeApplication")}
+"new" ClassTemplate                        -> Expr      {prefer, cons("NewClassExpr")}
+"new" TemplateBody                         -> Expr   {prefer, cons("NewTemplateExpr")}
+Expr "_"                                   -> Expr    {left, cons("EtaExpansionExpr"),
+                                          layout("1.last.line == 2.first.line")}
+PREFIX Expr                                -> Expr        {prefer, cons("PrefixExpr")}
+Expr SPECIAL-OP Expr                       -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr MULT-OP Expr                          -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr SUM-OP Expr                           -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr COLON-OP Expr                         -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr CMPR-OP Expr                          -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr BRACKET-OP Expr                       -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr AMPERSAND-OP Expr                     -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr CIRCUMFLEX-OP Expr                    -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr BAR-OP Expr                           -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr LETTER-OP Expr                        -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-SPECIAL-OP Expr                -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-MULT-OP Expr                   -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-SUM-OP Expr                    -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-COLON-OP Expr                  -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-CMPR-OP Expr                   -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-BRACKET-OP Expr                -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-AMPERSAND-OP Expr              -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-CIRCUMFLEX-OP Expr             -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-BAR-OP Expr                    -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr RASSOC-LETTER-OP Expr                 -> Expr          {right, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr ASSIGN-OP Expr                        -> Expr           {left, cons("InfixExpr"),
+   layout("1.last.line == 2.first.line && 3.first.line - 2.last.line < num(2)")}
+Expr Id                                    -> Expr        {avoid, cons("PostfixExpr"),
+                                          layout("1.last.line == 2.first.line")}
+Expr "match" "{" CaseClause+ "}" -> Expr                           {cons("MatchExpr")}
+Expr ArgumentExprs "=" Expr      -> Expr     {non-assoc, cons("AccessAssignmentExpr")}
+Expr "." Id "=" Expr             -> Expr {non-assoc, cons("DesignatorAssignmentExpr")}
+Bindings "=>" Expr               -> Expr                     {prefer, cons("FunExpr")}
+Id "=>" Expr                     -> Expr                   {prefer, cons("IdFunExpr")}
+"implicit" Id "=>" Expr          -> Expr             {prefer, cons("ImplicitFunExpr")}
+"_" "=>" Expr                    -> Expr             {prefer, cons("WildcardFunExpr")}
+"if" "(" NoLExpr ")" Expr        -> Expr                      {prefer, cons("IfExpr")}
+"if" "(" NoLExpr ")" Expr
+  "else" Expr                    -> Expr                          {cons("IfElseExpr")}
+"if" "(" NoLExpr ")" Expr ";"
+  "else" Expr                    -> Expr                          {cons("IfElseExpr")}
+"while" "(" NoLExpr ")" Expr            -> Expr                    {cons("WhileExpr")}
+"try" Expr                              -> Expr              {prefer, cons("TryExpr")}
+"try" Expr "catch" Expr                 -> Expr                 {cons("TryCatchExpr")}
+"try" Expr "finally" Expr               -> Expr               {cons("TryFinallyExpr")}
+"try" Expr "catch" Expr "finally" Expr  -> Expr   {avoid, cons("TryCatchFinallyExpr")}
+"do" Expr ";" "while" "(" Expr ")"      -> Expr                  {cons("DoWhileExpr")}
+"do" Expr "while" "(" Expr ")"          -> Expr                  {cons("DoWhileExpr")}
+"for" "(" EnumeratorSemi+ ")" Expr         -> Expr                   {cons("ForExpr")}
+"for" "{" EnumeratorSemi+ "}" Expr         -> Expr                   {cons("ForExpr")}
+"for" "(" EnumeratorSemi+ ")" "yield" Expr -> Expr              {cons("ForYieldExpr")}
+"for" "{" EnumeratorSemi+ "}" "yield" Expr -> Expr              {cons("ForYieldExpr")}
+"throw" Expr                               -> Expr                 {cons("ThrowExpr")}
+"return" Expr?                             -> Expr                {cons("ReturnExpr"),
+                                          layout("1.last.line == 2.first.line")}
+Id "=" Expr                              -> Expr   {non-assoc, cons("AssignmentExpr")}
+Expr Ascription                          -> Expr       {avoid, cons("AscriptionExpr")}
+Expr "." Id                              -> Expr       {avoid, cons("DesignatorExpr")}
+PREFIX Expr                              -> Expr                  {cons("PrefixExpr")}
 
-		Enumerator SEMI -> EnumeratorSemi {cons("EnumeratorSemi"), longest-match}
-		Enumerator EOL  -> EnumeratorSemi {cons("EnumeratorSemi"), enforce-newline, longest-match, prefer}
-		Enumerator EOP  -> EnumeratorSemi {cons("EnumeratorSemi"), longest-match, avoid}
-		Enumerator EOB  -> EnumeratorSemi {cons("EnumeratorSemi"), longest-match, avoid}
+"_"                                    -> NoLExpr               {cons("WildcardExpr")}
+Literal                                -> NoLExpr                       {prefer}
+NoLExpr ArgumentExprs                  -> NoLExpr                    {cons("AppExpr")}
+NoLExpr BlockExpr                      -> NoLExpr               {cons("BlockAppExpr")}
+"(" {NoLExpr ","}* ")"                 -> NoLExpr                  {cons("TupleExpr")}
+NoLExpr TypeArgs                       -> NoLExpr            {cons("TypeApplication")}
+"new" ClassTemplate                    -> NoLExpr       {prefer, cons("NewClassExpr")}
+"new" TemplateBody                     -> NoLExpr    {prefer, cons("NewTemplateExpr")}
+NoLExpr "_"                            -> NoLExpr     {left, cons("EtaExpansionExpr")}
+PREFIX NoLExpr                         -> NoLExpr         {prefer, cons("PrefixExpr")}
+NoLExpr SPECIAL-OP NoLExpr             -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr MULT-OP NoLExpr                -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr SUM-OP NoLExpr                 -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr COLON-OP NoLExpr               -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr CMPR-OP NoLExpr                -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr BRACKET-OP NoLExpr             -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr AMPERSAND-OP NoLExpr           -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr CIRCUMFLEX-OP NoLExpr          -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr BAR-OP NoLExpr                 -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr LETTER-OP NoLExpr              -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr RASSOC-SPECIAL-OP NoLExpr      -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-MULT-OP NoLExpr         -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-SUM-OP NoLExpr          -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-COLON-OP NoLExpr        -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-CMPR-OP NoLExpr         -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-BRACKET-OP NoLExpr      -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-AMPERSAND-OP NoLExpr    -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-CIRCUMFLEX-OP NoLExpr   -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-BAR-OP NoLExpr          -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr RASSOC-LETTER-OP NoLExpr       -> NoLExpr           {right, cons("InfixExpr")}
+NoLExpr ASSIGN-OP NoLExpr              -> NoLExpr            {left, cons("InfixExpr")}
+NoLExpr Id                             -> NoLExpr         {avoid, cons("PostfixExpr")}
+NoLExpr Id                             -> NoLExpr         {avoid, cons("PostfixExpr")}
+NoLExpr "match" "{" CaseClause+ "}"    -> NoLExpr                  {cons("MatchExpr")}
+NoLExpr ArgumentExprs "=" NoLExpr      -> NoLExpr       {cons("AccessAssignmentExpr"),
+                                                                      non-assoc}
+NoLExpr "." Id "=" NoLExpr             -> NoLExpr   {cons("DesignatorAssignmentExpr"),
+                                                                      non-assoc}
+Bindings "=>" NoLExpr                  -> NoLExpr            {prefer, cons("FunExpr")}
+Id "=>" NoLExpr                        -> NoLExpr          {prefer, cons("IdFunExpr")}
+"implicit" Id "=>" NoLExpr             -> NoLExpr    {prefer, cons("ImplicitFunExpr")}
+"_" "=>" NoLExpr                       -> NoLExpr    {prefer, cons("WildcardFunExpr")}
+"if" "(" NoLExpr ")" NoLExpr                     -> NoLExpr   {prefer, cons("IfExpr")}
+"if" "(" NoLExpr ")" NoLExpr "else" NoLExpr      -> NoLExpr       {cons("IfElseExpr")}
+"if" "(" NoLExpr ")" NoLExpr ";" "else" NoLExpr  -> NoLExpr       {cons("IfElseExpr")}
+"while" "(" NoLExpr ")" NoLExpr                  -> NoLExpr        {cons("WhileExpr")}
+"try" NoLExpr                               -> NoLExpr               {cons("TryExpr")}
+"try" NoLExpr "catch" NoLExpr               -> NoLExpr          {cons("TryCatchExpr")}
+"try" NoLExpr "finally" NoLExpr             -> NoLExpr        {cons("TryFinallyExpr")}
+"try" NoLExpr "catch" NoLExpr
+  "finally" NoLExpr                         -> NoLExpr   {cons("TryCatchFinallyExpr")}
+"do" NoLExpr ";" "while" "(" NoLExpr ")"      -> NoLExpr         {cons("DoWhileExpr")}
+"do" NoLExpr "while" "(" NoLExpr ")"          -> NoLExpr         {cons("DoWhileExpr")}
+"for" "(" EnumeratorSemi+ ")" NoLExpr         -> NoLExpr             {cons("ForExpr")}
+"for" "{" EnumeratorSemi+ "}" NoLExpr         -> NoLExpr             {cons("ForExpr")}
+"for" "(" EnumeratorSemi+ ")" "yield" NoLExpr -> NoLExpr        {cons("ForYieldExpr")}
+"for" "{" EnumeratorSemi+ "}" "yield" NoLExpr -> NoLExpr        {cons("ForYieldExpr")}
+"throw" NoLExpr                               -> NoLExpr           {cons("ThrowExpr")}
+"return" NoLExpr?                             -> NoLExpr          {cons("ReturnExpr"),
+                                          layout("1.last.line == 2.first.line")}
+NoLExpr Ascription                    -> NoLExpr       {avoid, cons("AscriptionExpr")}
+Id "=" NoLExpr                        -> NoLExpr   {non-assoc, cons("AssignmentExpr")}
+NoLExpr "." Id                        -> NoLExpr       {avoid, cons("DesignatorExpr")}
+PREFIX NoLExpr                        -> NoLExpr                  {cons("PrefixExpr")}
 
-		Generator                    -> Enumerator
-		Guard                        -> Enumerator
-		Pattern1 "=" Expr            -> Enumerator {cons("ValDef")}
-		"val" Pattern1 "=" Expr      -> Enumerator {cons("ValDef")}
 
-		"case" Pattern Guard? "=>" CaseBlock -> CaseClause {cons("CaseClause")}
+%%%%% Common %%%%%%
+context-free syntax
+"(" NoLExprs? ")"                           -> ArgumentExprs   {cons("ArgumentExprs")}
+"(" (NoLExprs ",")? NoLExpr ":" "_" "*" ")" -> ArgumentExprs
+                                               {prefer, cons("SequenceArgumentExprs")}
 
-		"{" CaseClause+ "}" -> BlockExpr {cons("CaseBlockExpr")}
-		"{" Block "}"       -> BlockExpr {cons("BlockExpr")}
+ArgumentExprs                  -> ArgumentExprsSeq
+ArgumentExprs ArgumentExprsSeq -> ArgumentExprsSeq          {cons("ArgumentExprsSeq"),
+                                          layout("1.last.line == 2.first.line")}
 
-		Block              -> CaseBlock
-		CaseBlockStatSemi* -> CaseBlock {cons("CaseBlock"), avoid}
+{NoLExpr ","}+ -> NoLExprs                                             {cons("Exprs")}
 
-		BlockStatSemi      -> CaseBlockStatSemi
-		BlockStat EOC      -> CaseBlockStatSemi {cons("EOCBlockStatSemi"), avoid}
+":" InfixType   -> Ascription                                 {cons("TypeAscription")}
+":" Annotation+ -> Ascription                           {cons("AnnotationAscription")}
+":" "_" "*"     -> Ascription                             {cons("SequenceAscription")}
 
-		BlockStatSemi* ResultExpr -> Block {cons("Block"), prefer}
-		BlockStatSemi*            -> Block {cons("Block")}
+Pattern1 "<-" Expr Guard?       -> Generator                       {cons("Generator")}
+"val" Pattern1 "<-" Expr Guard? -> Generator                       {cons("Generator")}
 
-		Bindings "=>" Block                       -> ResultExpr {cons("BindingsResultExpr")}
-		"implicit" Id ":" CompoundType "=>" Block -> ResultExpr {cons("ImplicitResultExpr")}
-		Id (":" CompoundType)? "=>" Block         -> ResultExpr {cons("SimpleResultExpr")}
-		"_" (":" CompoundType)? "=>" Block        -> ResultExpr {cons("WildcardResultExpr")}
+"if" NoLExpr -> Guard                                                  {cons("Guard")}
 
-		BlockStat EOL   -> BlockStatSemi {cons("BlockStatSemi"), enforce-newline, longest-match, prefer}
-		BlockStat EOB   -> BlockStatSemi {cons("BlockStatSemi"), longest-match, avoid}
-		BlockStat SEMI  -> BlockStatSemi {cons("BlockStatSemi"), longest-match}
-		SEMI            -> BlockStatSemi
+Enumerator EOL  -> EnumeratorSemi                             {cons("EnumeratorSemi"),
+                                         enforce-newline, longest-match, prefer}
+Enumerator SEMI -> EnumeratorSemi              {longest-match, cons("EnumeratorSemi")}
+Enumerator EOP  -> EnumeratorSemi       {longest-match, avoid, cons("EnumeratorSemi")}
+Enumerator EOB  -> EnumeratorSemi       {longest-match, avoid, cons("EnumeratorSemi")}
 
-		Import                             -> BlockStat
-		Expr                               -> BlockStat
-		Annotation* LocalModifier* TmplDef -> BlockStat {cons("TmplDefBlockStat"), prefer}
-		Annotation* Def                    -> BlockStat {cons("DefBlockStat")}
-		Annotation* "implicit" Def         -> BlockStat {cons("ImplicitDefBlockStat")}
-		Annotation* "lazy" Def             -> BlockStat {cons("LazyDefBlockStat")}
+Generator                    -> Enumerator
+Guard                        -> Enumerator
+Pattern1 "=" Expr            -> Enumerator                            {cons("ValDef")}
+"val" Pattern1 "=" Expr      -> Enumerator                            {cons("ValDef")}
 
-		SEMI              -> TemplateStatSemi
-		TemplateStat SEMI -> TemplateStatSemi {cons("TemplateStatSemi"), longest-match}
-		TemplateStat EOL  -> TemplateStatSemi {cons("TemplateStatSemi"), enforce-newline, longest-match, prefer}
-		TemplateStat EOB  -> TemplateStatSemi {cons("TemplateStatSemi"), longest-match, avoid}
+"case" Pattern Guard? "=>" CaseBlock -> CaseClause                {cons("CaseClause")}
 
-		AnnotationSeq? Modifier* Def -> TemplateStat {cons("DefTemplateStat")}
-		AnnotationSeq? Modifier* Dcl -> TemplateStat {cons("DclTemplateStat")}
-		Import                       -> TemplateStat {cons("ImportTemplateStat")}
-		Expr                         -> TemplateStat {cons("ExprTemplateStat")}
+"{" CaseClause+ "}" -> BlockExpr                               {cons("CaseBlockExpr")}
+"{" Block "}"       -> BlockExpr                                   {cons("BlockExpr")}
 
-		Id (":" Type)?  -> Binding {cons("Binding")}
-		"_" (":" Type)? -> Binding {cons("WildCardBinding")}
+Block              -> CaseBlock
+CaseBlockStatSemi* -> CaseBlock                             {avoid, cons("CaseBlock")}
 
-		"(" {Binding ","}* ")" -> Bindings {cons("Bindings")}
+BlockStatSemi      -> CaseBlockStatSemi
+BlockStat EOC      -> CaseBlockStatSemi              {avoid, cons("EOCBlockStatSemi")}
 
-		"=" Expr -> Assignment {cons("Assignment")}
+BlockStatSemi* ResultExpr -> Block                             {prefer, cons("Block")}
+BlockStatSemi*            -> Block                                     {cons("Block")}
+
+Bindings "=>" Block                       -> ResultExpr   {cons("BindingsResultExpr")}
+"implicit" Id ":" CompoundType "=>" Block -> ResultExpr   {cons("ImplicitResultExpr")}
+Id (":" CompoundType)? "=>" Block         -> ResultExpr     {cons("SimpleResultExpr")}
+"_" (":" CompoundType)? "=>" Block        -> ResultExpr   {cons("WildcardResultExpr")}
+
+BlockStat EOL   -> BlockStatSemi                               {cons("BlockStatSemi"),
+                                         enforce-newline, longest-match, prefer}
+BlockStat SEMI  -> BlockStatSemi                {longest-match, cons("BlockStatSemi")}
+BlockStat EOB   -> BlockStatSemi         {longest-match, avoid, cons("BlockStatSemi")}
+SEMI            -> BlockStatSemi
+
+Import                             -> BlockStat
+Expr                               -> BlockStat
+Annotation* LocalModifier* TmplDef -> BlockStat     {prefer, cons("TmplDefBlockStat")}
+Annotation* Def                    -> BlockStat                 {cons("DefBlockStat")}
+Annotation* "implicit" Def         -> BlockStat         {cons("ImplicitDefBlockStat")}
+Annotation* "lazy" Def             -> BlockStat             {cons("LazyDefBlockStat")}
+
+TemplateStat SEMI -> TemplateStatSemi        {longest-match, cons("TemplateStatSemi")}
+TemplateStat EOL  -> TemplateStatSemi                       {cons("TemplateStatSemi"),
+                                         enforce-newline, longest-match, prefer}
+TemplateStat EOB  -> TemplateStatSemi {longest-match, avoid, cons("TemplateStatSemi")}
+SEMI              -> TemplateStatSemi
+
+AnnotationSeq? Modifier* Def -> TemplateStat                 {cons("DefTemplateStat")}
+AnnotationSeq? Modifier* Dcl -> TemplateStat                 {cons("DclTemplateStat")}
+Import                       -> TemplateStat              {cons("ImportTemplateStat")}
+Expr                         -> TemplateStat                {cons("ExprTemplateStat")}
+
+Id (":" Type)?  -> Binding                                           {cons("Binding")}
+"_" (":" Type)? -> Binding                                   {cons("WildCardBinding")}
+
+"(" {Binding ","}* ")" -> Bindings                                  {cons("Bindings")}
+
+"=" Expr -> Assignment                                            {cons("Assignment")}
 
 module Scala-ClassesObjects
 
 imports
-	Scala-BasicDeclsDefs
-	Scala-Expressions
-	Scala-Identifiers
-	Scala-Types
-	Scala-Whitespace
+Scala-BasicDeclsDefs
+Scala-Expressions
+Scala-Identifiers
+Scala-Types
+Scala-Whitespace
 
 exports
-	context-free syntax
-		%% §5.1 - Templates
-		EarlyDefs? ClassParents TemplateBody? -> ClassTemplate {cons("ClassTemplate")}
-		EarlyDefs? TraitParents TemplateBody? -> TraitTemplate {cons("TraitTemplate")}
 
-		Constr WithAnnotType*    -> ClassParents {cons("ClassParents")}
-		AnnotType WithAnnotType* -> TraitParents {cons("TraitParents")}
+context-free syntax
+%% §5.1 - Templates
+EarlyDefs? ClassParents TemplateBody? -> ClassTemplate         {cons("ClassTemplate")}
+EarlyDefs? TraitParents TemplateBody? -> TraitTemplate         {cons("TraitTemplate")}
 
-		"with" AnnotType         -> WithAnnotType {cons("WithAnnotType")}
+Constr WithAnnotType*    -> ClassParents                        {cons("ClassParents")}
+AnnotType WithAnnotType* -> TraitParents                        {cons("TraitParents")}
 
-		Id Typed? "=>"       -> SelfType {cons("SelfType")}
-		"this" ":" Type "=>" -> SelfType {cons("ThisSelfType")}
-		"_" ":" Type "=>"    -> SelfType {cons("WildcardSelfType")}
+"with" AnnotType         -> WithAnnotType                      {cons("WithAnnotType")}
 
-		%% TODO: Nl
-		"{" SelfType TemplateStatSemi* "}" -> TemplateBody {cons("SelfTypeTemplateBody"), prefer}
-		"{" TemplateStatSemi* "}"          -> TemplateBody {cons("TemplateBody")}
+Id Typed? "=>"       -> SelfType                                    {cons("SelfType")}
+"this" ":" Type "=>" -> SelfType                                {cons("ThisSelfType")}
+"_" ":" Type "=>"    -> SelfType                            {cons("WildcardSelfType")}
 
-		%% §5.1.1 - Constructor Invocations
-		AnnotType ArgumentExprsSeq? -> Constr {cons("Constr")}
+%% TODO: Nl
+"{" SelfType TemplateStatSemi* "}" -> TemplateBody      {cons("SelfTypeTemplateBody"),
+                                                                         prefer}
+"{" TemplateStatSemi* "}"          -> TemplateBody              {cons("TemplateBody")}
 
-		%% §5.1.6 - Early Definitions
-		"{" EarlyDefSemi* "}" "with" -> EarlyDefs {cons("EarlyDefs")}
+%% §5.1.1 - Constructor Invocations
+AnnotType ArgumentExprsSeq? -> Constr                                 {cons("Constr")}
 
-		EarlyDef SEMI -> EarlyDefSemi {cons("EarlyDefSemi"), longest-match}
-		EarlyDef EOL  -> EarlyDefSemi {cons("EarlyDefSemi"), enforce-newline, longest-match, prefer}
-		EarlyDef EOB  -> EarlyDefSemi {cons("EarlyDefSemi"), longest-match, avoid}
+%% §5.1.6 - Early Definitions
+"{" EarlyDefSemi* "}" "with" -> EarlyDefs                          {cons("EarlyDefs")}
 
-		AnnotationSeq? Modifier* PatVarDef -> EarlyDef {cons("EarlyDef")}
+EarlyDef SEMI -> EarlyDefSemi                    {longest-match, cons("EarlyDefSemi")}
+EarlyDef EOL  -> EarlyDefSemi                                   {cons("EarlyDefSemi"),
+                                         enforce-newline, longest-match, prefer}
+EarlyDef EOB  -> EarlyDefSemi             {longest-match, avoid, cons("EarlyDefSemi")}
 
-
-		%% §5.2 - Modifiers
-		LocalModifier  -> Modifier
-		AccessModifier -> Modifier
-		"override"     -> Modifier {cons("OverrideModifier")}
-
-		"abstract" -> LocalModifier {cons("AbstractModifier")}
-		"final"    -> LocalModifier {cons("FinalModifier")}
-		"sealed"   -> LocalModifier {cons("SealedModifier")}
-		"implicit" -> LocalModifier {cons("ImplicitModifier")}
-		"lazy"     -> LocalModifier {cons("LazyModifier")}
-
-		"private" AccessQualifier?   -> AccessModifier {cons("PrivateModifier")}
-		"protected" AccessQualifier? -> AccessModifier {cons("ProtectedModifier")}
-
-		"[" Id "]"     -> AccessQualifier {cons("AccessQualifier")}
-		"[" "this" "]" -> AccessQualifier {cons("ThisQualifier")}
+AnnotationSeq? Modifier* PatVarDef -> EarlyDef                      {cons("EarlyDef")}
 
 
-		%% §5.3 - Class Definitions
-		"class" ClassDef -> TmplDef {cons("Class")}
+%% §5.2 - Modifiers
+LocalModifier  -> Modifier
+AccessModifier -> Modifier
+"override"     -> Modifier                                  {cons("OverrideModifier")}
 
-		Morphism ConstrAnnotation* AccessModifier? ClassParamClauses? ClassTemplateOpt -> ClassDef {cons("ClassDef"), layout("4.first.line - 1.last.line < num(2)")}
+"abstract" -> LocalModifier                                 {cons("AbstractModifier")}
+"final"    -> LocalModifier                                    {cons("FinalModifier")}
+"sealed"   -> LocalModifier                                   {cons("SealedModifier")}
+"implicit" -> LocalModifier                                 {cons("ImplicitModifier")}
+"lazy"     -> LocalModifier                                     {cons("LazyModifier")}
 
-		Id                  -> Morphism
-		Id TypeParamClause  -> Morphism {cons("Polymorph")}
+"private" AccessQualifier?   -> AccessModifier               {cons("PrivateModifier")}
+"protected" AccessQualifier? -> AccessModifier             {cons("ProtectedModifier")}
 
-		ClassParamClause                                       -> ClassParamClauses
-		"(" "implicit" {ClassParam ","}+ ")"                   -> ClassParamClauses {cons("ImplicitClassParamClause"), prefer}
-		ClassParamClause ClassParamClauses                     -> ClassParamClauses {cons("ClassParamClauses"), layout("2.first.line - 1.last.line < num(2)")}
-
-		"(" {ClassParam ","}* ")" -> ClassParamClause {cons("ClassParamClause")}
-
-		Annotation* Id ":" ParamType Assignment?                 -> ClassParam {cons("ClassParam")}
-		Annotation* Modifier* "val" Id ":" ParamType Assignment? -> ClassParam {cons("ValClassParam")}
-		Annotation* Modifier* "var" Id ":" ParamType Assignment? -> ClassParam {cons("VarClassParam")}
-
-		"extends" ClassTemplate -> ClassTemplateOpt {cons("ClassClassTemplateOpt")}
-		"extends" TemplateBody  -> ClassTemplateOpt {cons("TemplateClassTemplateOpt")}
-		TemplateBody            -> ClassTemplateOpt
-		                        -> ClassTemplateOpt {cons("EmptyClassTemplateOpt")}
+"[" Id "]"     -> AccessQualifier                            {cons("AccessQualifier")}
+"[" "this" "]" -> AccessQualifier                              {cons("ThisQualifier")}
 
 
-		%% §5.3.1 - Constructor Definitions
-		"this" ParamClauses "=" ConstrExpr -> FunDef {cons("ThisExprFunDef")}
-		"this" ParamClauses ConstrBlock    -> FunDef {cons("ThisBlockFunDef"), layout("3.first.line - 2.last.line < num(2)")}
+%% §5.3 - Class Definitions
+"class" ClassDef -> TmplDef                                            {cons("Class")}
 
-		"this" ArgumentExprsSeq -> SelfInvocation {cons("SelfInvocation")}
-		"this" BlockExpr        -> SelfInvocation {cons("BlockSelfInvocation"), layout("2.first.line - 1.last.line < num(2)")}
+Morphism ConstrAnnotation*
+  AccessModifier? ClassParamClauses? ClassTemplateOpt -> ClassDef   {cons("ClassDef"),
+                                  layout("4.first.line - 1.last.line < num(2)")}
 
-		SelfInvocation -> ConstrExpr
-		ConstrBlock    -> ConstrExpr
+Id                  -> Morphism
+Id TypeParamClause  -> Morphism                                    {cons("Polymorph")}
 
-		"{" SelfInvocation ";" BlockStatSemi* "}"  -> ConstrBlock {cons("ConstrBlock")}
-		"{" SelfInvocation "}"                     -> ConstrBlock {cons("ConstrBlock")}
-		"{" SelfInvocation BlockStatSemi+ "}"      -> ConstrBlock {cons("ConstrBlock"), layout("3.first.line - 2.last.line > num(0)")}
+ClassParamClause                     -> ClassParamClauses
+"(" "implicit" {ClassParam ","}+ ")" -> ClassParamClauses
+                                            {prefer, cons("ImplicitClassParamClause")}
+ClassParamClause ClassParamClauses   -> ClassParamClauses
+            {layout("2.first.line - 1.last.line < num(2)"), cons("ClassParamClauses")}
 
-		%% §5.3.2 - Case Classes
-		"case" "class" ClassDef   -> TmplDef {cons("CaseClass")}
+"(" {ClassParam ","}* ")" -> ClassParamClause               {cons("ClassParamClause")}
 
-		%% §5.3.3 - Traits
-		"trait" TraitDef -> TmplDef {cons("Trait")}
+Annotation* Id ":" ParamType Assignment?                 -> ClassParam
+                                                                  {cons("ClassParam")}
+Annotation* Modifier* "val" Id ":" ParamType Assignment? -> ClassParam
+                                                               {cons("ValClassParam")}
+Annotation* Modifier* "var" Id ":" ParamType Assignment? -> ClassParam
+                                                               {cons("VarClassParam")}
 
-		Id TypeParamClause? TraitTemplateOpt -> TraitDef {cons("TraitDef")}
+"extends" ClassTemplate -> ClassTemplateOpt            {cons("ClassClassTemplateOpt")}
+"extends" TemplateBody  -> ClassTemplateOpt         {cons("TemplateClassTemplateOpt")}
+                        -> ClassTemplateOpt            {cons("EmptyClassTemplateOpt")}
+TemplateBody            -> ClassTemplateOpt
 
-		"extends" TraitTemplate -> TraitTemplateOpt {cons("TraitTraitTemplateOpt")}
-		"extends" TemplateBody  -> TraitTemplateOpt {cons("TemplateTraitTemplateOpt")}
-		TemplateBody            -> TraitTemplateOpt
-		                        -> TraitTemplateOpt {cons("EmptyTraitTemplateOpt")}
 
-		%% §5.4 - Object Definitions
-		"case" "object" ObjectDef -> TmplDef {cons("CaseObject")}
-		"object" ObjectDef        -> TmplDef {cons("Object")}
+%% §5.3.1 - Constructor Definitions
+"this" ParamClauses "=" ConstrExpr -> FunDef                  {cons("ThisExprFunDef")}
+"this" ParamClauses ConstrBlock    -> FunDef                 {cons("ThisBlockFunDef"),
+                                  layout("3.first.line - 2.last.line < num(2)")}
 
-		Id ClassTemplateOpt -> ObjectDef {cons("ObjectDef")}
+"this" ArgumentExprsSeq -> SelfInvocation                     {cons("SelfInvocation")}
+"this" BlockExpr        -> SelfInvocation                {cons("BlockSelfInvocation"),
+                                  layout("2.first.line - 1.last.line < num(2)")}
+
+SelfInvocation -> ConstrExpr
+ConstrBlock    -> ConstrExpr
+
+"{" SelfInvocation ";" BlockStatSemi* "}"  -> ConstrBlock        {cons("ConstrBlock")}
+"{" SelfInvocation "}"                     -> ConstrBlock        {cons("ConstrBlock")}
+"{" SelfInvocation BlockStatSemi+ "}"      -> ConstrBlock        {cons("ConstrBlock"),
+                                  layout("3.first.line - 2.last.line > num(0)")}
+
+%% §5.3.2 - Case Classes
+"case" "class" ClassDef   -> TmplDef                               {cons("CaseClass")}
+
+%% §5.3.3 - Traits
+"trait" TraitDef -> TmplDef                                            {cons("Trait")}
+
+Id TypeParamClause? TraitTemplateOpt -> TraitDef                    {cons("TraitDef")}
+
+"extends" TraitTemplate -> TraitTemplateOpt            {cons("TraitTraitTemplateOpt")}
+"extends" TemplateBody  -> TraitTemplateOpt         {cons("TemplateTraitTemplateOpt")}
+                        -> TraitTemplateOpt            {cons("EmptyTraitTemplateOpt")}
+TemplateBody            -> TraitTemplateOpt
+
+%% §5.4 - Object Definitions
+"case" "object" ObjectDef -> TmplDef                              {cons("CaseObject")}
+"object" ObjectDef        -> TmplDef                                  {cons("Object")}
+
+Id ClassTemplateOpt -> ObjectDef                                   {cons("ObjectDef")}
 
 module Scala-BasicDeclsDefs
 
 imports
-	Scala-ClassesObjects
-	Scala-Expressions
-	Scala-Identifiers
-	Scala-Types
+Scala-ClassesObjects
+Scala-Expressions
+Scala-Identifiers
+Scala-Types
 
 exports
-	context-free syntax
-		%% Extracted to avoid optional lexical syntax:
-		%%     (":" Type)?
-		":" Type      -> Typed {cons("Typed")}
-		":" ParamType -> ParamTyped {cons("ParamTyped")}
 
-		%% §4 - Basic Declarations and Definitions
-		PatVarDef      -> Def
-		TmplDef        -> Def
+context-free syntax
+%% Extracted to avoid optional lexical syntax:
+%%     (":" Type)?
+":" Type      -> Typed                                                 {cons("Typed")}
+":" ParamType -> ParamTyped                                       {cons("ParamTyped")}
 
-
-		%% §4.1 - Value Declarations and Definitions
-		"val" ValDcl                         -> Dcl {cons("ValDclDcl")}
-		{Id ","}+ ":" Type                   -> ValDcl {cons("ValDcl")}
-		"val" PatDef                         -> PatVarDef {cons("ValPatDef")}
-		{Pattern2 ","}+ Typed? "=" Expr      -> PatDef {cons("PatDef")}
+%% §4 - Basic Declarations and Definitions
+PatVarDef      -> Def
+TmplDef        -> Def
 
 
-		%% §4.2 - Variable Declarations and Definitions
-		"var" VarDcl               -> Dcl {cons("VarDclDcl")}
-		"var" VarDef               -> PatVarDef {cons("VarPatDef")}
-		{Id ","}+ ":" Type         -> VarDcl {cons("VarDcl")}
-		PatDef                     -> VarDef
-		{Id ","}+ ":" Type "=" "_" -> VarDef {cons("WildcardVarDef"), prefer}
+%% §4.1 - Value Declarations and Definitions
+"val" ValDcl                         -> Dcl                        {cons("ValDclDcl")}
+{Id ","}+ ":" Type                   -> ValDcl                        {cons("ValDcl")}
+"val" PatDef                         -> PatVarDef                  {cons("ValPatDef")}
+{Pattern2 ","}+ Typed? "=" Expr      -> PatDef                        {cons("PatDef")}
 
 
-		%% §4.3 - Type Declarations and Type Aliases
-		"type" TypeDcl                                      -> Dcl {cons("TypeDclDcl")}
-		Id TypeParamClause? LowerBoundType? UpperBoundType? -> TypeDcl {cons("TypeDcl")}
-		"type" TypeDef                                      -> Def {cons("TypeDefDef")}
-		Id TypeParamClause? "=" Type                        -> TypeDef {cons("TypeDef")}
+%% §4.2 - Variable Declarations and Definitions
+"var" VarDcl               -> Dcl                                  {cons("VarDclDcl")}
+"var" VarDef               -> PatVarDef                            {cons("VarPatDef")}
+{Id ","}+ ":" Type         -> VarDcl                                  {cons("VarDcl")}
+{Id ","}+ ":" Type "=" "_" -> VarDef                  {prefer, cons("WildcardVarDef")}
+PatDef                     -> VarDef
 
 
-		%% §.4.4 - Type Parameters
-		"[" {VariantTypeParam ","}+ "]" -> TypeParamClause {cons("TypeParamClause")}
-
-		Annotation* TypeParam     -> VariantTypeParam {cons("VariantTypeParam")}
-		Annotation* "+" TypeParam -> VariantTypeParam {cons("PlusVariantTypeParam")}
-		Annotation* "-" TypeParam -> VariantTypeParam {cons("NegVariantTypeParam")}
-
-		Id  TypeParamClause? LowerBoundType? UpperBoundType? TypeViewBound* TypeContextBound* -> TypeParam {cons("TypeParam")}
-		"_" TypeParamClause? LowerBoundType? UpperBoundType? TypeViewBound* TypeContextBound* -> TypeParam {cons("WildcardTypeParam")}
-
-		">:" Type -> LowerBoundType {cons("LowerBoundType")}
-		"<:" Type -> UpperBoundType {cons("UpperBoundType")}
-		"<%" Type -> TypeViewBound {cons("TypeViewBound")}
-		":" Type  -> TypeContextBound {cons("TypeContextBound")}
+%% §4.3 - Type Declarations and Type Aliases
+"type" TypeDcl                                      -> Dcl        {cons("TypeDclDcl")}
+Id TypeParamClause? LowerBoundType? UpperBoundType? -> TypeDcl       {cons("TypeDcl")}
+"type" TypeDef                                      -> Def        {cons("TypeDefDef")}
+Id TypeParamClause? "=" Type                        -> TypeDef       {cons("TypeDef")}
 
 
-		%% §4.6 - Function Declarations and Definitions
-		"def" FunDcl                         -> Dcl {cons("FunDclDcl")}
-		FunSig ":" Type                      -> FunDcl {cons("FunDcl")}
-		"def" FunDef                         -> Def {cons("FunDefDef")}
-		FunSig Typed? "=" Expr               -> FunDef {cons("FunDef")}
-		Id TypeParamClause? ParamClauses?    -> FunSig {cons("FunSig"), layout("3.first.line - 1.last.line < num(2)")}
-		%% Annotations are allowed for function type parameters according to scalac v2.10.0*,
-		%% so TypeParamClause is used here instead of FunTypeParamClause
-		%% "[" {TypeParam ","}+ "]"             -> FunTypeParamClause {"FunTypeParamClause"}
+%% §.4.4 - Type Parameters
+"[" {VariantTypeParam ","}+ "]" -> TypeParamClause           {cons("TypeParamClause")}
 
-		ParamClause                     -> ParamClauses
-		"(" "implicit" {Param ","}+ ")" -> ParamClauses {cons("ImplicitParamClause")}
-		ParamClause ParamClauses        -> ParamClauses {cons("ParamClauses"), layout("2.first.line - 1.last.line < num(2)")}
+Annotation* TypeParam     -> VariantTypeParam               {cons("VariantTypeParam")}
+Annotation* "+" TypeParam -> VariantTypeParam           {cons("PlusVariantTypeParam")}
+Annotation* "-" TypeParam -> VariantTypeParam            {cons("NegVariantTypeParam")}
 
-		"(" {Param ","}* ")" -> ParamClause {cons("ParamClause")}
+Id  TypeParamClause? LowerBoundType?
+  UpperBoundType? TypeViewBound* TypeContextBound* -> TypeParam    {cons("TypeParam")}
+"_" TypeParamClause? LowerBoundType?
+  UpperBoundType? TypeViewBound* TypeContextBound* -> TypeParam
+                                                           {cons("WildcardTypeParam")}
 
-		Annotation* Id ParamTyped? Assignment? -> Param {cons("Param")}
+">:" Type -> LowerBoundType                                   {cons("LowerBoundType")}
+"<:" Type -> UpperBoundType                                   {cons("UpperBoundType")}
+"<%" Type -> TypeViewBound                                     {cons("TypeViewBound")}
+":" Type  -> TypeContextBound                               {cons("TypeContextBound")}
 
-		Type      -> ParamType
-		"=>" Type -> ParamType {cons("ByNameParam")}
-		Type "*"  -> ParamType {cons("RepeatedParam")}
 
-		%% §4.6.3 - Procedures
-		FunSig               -> FunDcl {cons("ProcDcl")}
-		FunSig "{" Block "}" -> FunDef {cons("ProcDef"), layout("2.first.line - 1.last.line < num(2)")}
+%% §4.6 - Function Declarations and Definitions
+"def" FunDcl                         -> Dcl                        {cons("FunDclDcl")}
+FunSig ":" Type                      -> FunDcl                        {cons("FunDcl")}
+"def" FunDef                         -> Def                        {cons("FunDefDef")}
+FunSig Typed? "=" Expr               -> FunDef                        {cons("FunDef")}
+Id TypeParamClause? ParamClauses?    -> FunSig                        {cons("FunSig"),
+                                  layout("3.first.line - 1.last.line < num(2)")}
+%% Annotations are allowed for function type parameters according to
+%% scalac v2.10.0*, % so TypeParamClause is used here instead of
+%% FunTypeParamClause
+%% "[" {TypeParam ","}+ "]"         -> FunTypeParamClause {"FunTypeParamClause"}
 
-		%% §4.7 - Import Clauses
-		"import" {ImportExpr ","}+ -> Import{cons("Import")}
+ParamClause                     -> ParamClauses
+"(" "implicit" {Param ","}+ ")" -> ParamClauses          {cons("ImplicitParamClause")}
+ParamClause ParamClauses        -> ParamClauses                 {cons("ParamClauses"),
+                                  layout("2.first.line - 1.last.line < num(2)")}
 
-		StableId                     -> ImportExpr {cons("ImportExpr")}
-		StableId "." "_"             -> ImportExpr {cons("WildcardImportExpr")}
-		StableId "." ImportSelectors -> ImportExpr {cons("SelectorsImportExpr")}
+"(" {Param ","}* ")" -> ParamClause                              {cons("ParamClause")}
 
-		"{" {ImportSelector ","}+ "}"         -> ImportSelectors {cons("ImportSelectors")}
-		"{" {ImportSelector ","}+ "," "_" "}" -> ImportSelectors {cons("ImportSelectorsWithWildcard")}
-		"{" "_" "}"                           -> ImportSelectors {cons("OnlyWildcardImportSelectors")}
+Annotation* Id ParamTyped? Assignment? -> Param                        {cons("Param")}
 
-		Id          -> ImportSelector {cons("ImportSelector")}
-		Id "=>" Id  -> ImportSelector {cons("MappedImportSelector")}
-		Id "=>" "_" -> ImportSelector {cons("WildcardImportSelector")}
+Type      -> ParamType
+"=>" Type -> ParamType                                           {cons("ByNameParam")}
+Type "*"  -> ParamType                                         {cons("RepeatedParam")}
+
+%% §4.6.3 - Procedures
+FunSig               -> FunDcl                                       {cons("ProcDcl")}
+FunSig "{" Block "}" -> FunDef                                       {cons("ProcDef"),
+                                  layout("2.first.line - 1.last.line < num(2)")}
+
+%% §4.7 - Import Clauses
+"import" {ImportExpr ","}+ -> Import                                  {cons("Import")}
+
+StableId                     -> ImportExpr                        {cons("ImportExpr")}
+StableId "." "_"             -> ImportExpr                {cons("WildcardImportExpr")}
+StableId "." ImportSelectors -> ImportExpr               {cons("SelectorsImportExpr")}
+
+"{" {ImportSelector ","}+ "}"         -> ImportSelectors     {cons("ImportSelectors")}
+"{" {ImportSelector ","}+ "," "_" "}" -> ImportSelectors
+                                                 {cons("ImportSelectorsWithWildcard")}
+"{" "_" "}"                           -> ImportSelectors
+                                                 {cons("OnlyWildcardImportSelectors")}
+
+Id          -> ImportSelector                                 {cons("ImportSelector")}
+Id "=>" Id  -> ImportSelector                           {cons("MappedImportSelector")}
+Id "=>" "_" -> ImportSelector                         {cons("WildcardImportSelector")}
 
 module Scala-Annotations
 
 imports
-	Scala-Expressions
-	Scala-Types
+Scala-Expressions
+Scala-Types
 
 exports
-	context-free syntax
-		"@" SimpleType ArgumentExprsSeq? -> Annotation {cons("Annotation"), layout("2.last.line == 3.first.line")}
 
-		"@" SimpleType ArgumentExprs?    -> ConstrAnnotation {cons("ConstrAnnotation"), layout("2.last.line == 3.first.line")}
+context-free syntax
+"@" SimpleType ArgumentExprsSeq? -> Annotation                    {cons("Annotation"),
+                                          layout("2.last.line == 3.first.line")}
 
-		Annotation               -> AnnotationSeq
-		Annotation AnnotationSeq -> AnnotationSeq {cons("AnnotationSeq"), layout("2.first.line - 1.last.line < num(2)")}
+"@" SimpleType ArgumentExprs? -> ConstrAnnotation           {cons("ConstrAnnotation"),
+                                          layout("2.last.line == 3.first.line")}
+
+Annotation               -> AnnotationSeq
+Annotation AnnotationSeq -> AnnotationSeq                      {cons("AnnotationSeq"),
+                                  layout("2.first.line - 1.last.line < num(2)")}
 
 module Scala
 
 imports
-	Scala-Annotations
-	Scala-BasicDeclsDefs
-	Scala-ClassesObjects
-	Scala-Expressions
-	Scala-Identifiers
-	Scala-Literals
-	Scala-Macros
-	Scala-PatternMatching
-	Scala-TopLevelDefinitions
-	Scala-Types
-	Scala-Whitespace
+Scala-Annotations
+Scala-BasicDeclsDefs
+Scala-ClassesObjects
+Scala-Expressions
+Scala-Identifiers
+Scala-Literals
+Scala-Macros
+Scala-PatternMatching
+Scala-TopLevelDefinitions
+Scala-Types
+Scala-Whitespace
 
 exports
-	context-free start-symbols
-		Annotation Block CompilationUnit Def Dcl Expr Id Import NoLExpr Path Pattern StableId TemplateBody TemplateStat TmplDef Type TypeParamClause
+
+context-free start-symbols
+Annotation
+Block
+CompilationUnit
+Dcl
+Def
+Expr
+Id
+Import
+NoLExpr
+Path
+Pattern
+StableId
+TemplateBody
+TemplateStat
+TmplDef
+Type
+TypeParamClause
 
 module org/sugarj/languages/Scala
 imports Scala
-	[ AccessModifier                        => ScalaAccessModifier
+	[ AMPERSAND-OP                          => SCALA-AMPERSAND-OP
+	  ASSIGN-OP                             => SCALA-ASSIGN-OP
+	  ASTERISK                              => SCALA-ASTERISK
+	  AccessModifier                        => ScalaAccessModifier
 	  AccessQualifier                       => ScalaAccessQualifier
-	  AmpersandOp                           => ScalaAmpersandOp
 	  AnnotType                             => ScalaAnnotType
 	  Annotation                            => ScalaAnnotation
 	  AnnotationSeq                         => ScalaAnnotationSeq
 	  ArgumentExprs                         => ScalaArgumentExprs
 	  ArgumentExprsSeq                      => ScalaArgumentExprsSeq
 	  Ascription                            => ScalaAscription
-	  AssignOp                              => ScalaAssignOp
 	  Assignment                            => ScalaAssignment
-	  Asterisk                              => ScalaAsterisk
-	  BarOp                                 => ScalaBarOp
+	  BAR-OP                                => SCALA-BAR-OP
+	  BLOCK-COMMENT                         => SCALA-BLOCK-COMMENT
+	  BLOCK-COMMENT-PART                    => SCALA-BLOCK-COMMENT-PART
+	  BRACKET-OP                            => SCALA-BRACKET-OP
 	  Binding                               => ScalaBinding
 	  Bindings                              => ScalaBindings
 	  Block                                 => ScalaBlock
-	  BlockComment                          => ScalaBlockComment
-	  BlockCommentPart                      => ScalaBlockCommentPart
 	  BlockExpr                             => ScalaBlockExpr
 	  BlockStat                             => ScalaBlockStat
 	  BlockStatSemi                         => ScalaBlockStatSemi
 	  BooleanLiteral                        => ScalaBooleanLiteral
-	  BracketOp                             => ScalaBracketOp
+	  CHAR                                  => SCALA-CHAR
+	  CHAR-ESCAPE-SEQ                       => SCALA-CHAR-ESCAPE-SEQ
+	  CHAR-NO-DOUBLE-QUOTE                  => SCALA-CHAR-NO-DOUBLE-QUOTE
+	  CIRCUMFLEX-OP                         => SCALA-CIRCUMFLEX-OP
+	  CMPR-OP                               => SCALA-CMPR-OP
+	  COLON-OP                              => SCALA-COLON-OP
+	  CONST-ID                              => SCALA-CONST-ID
+	  CONST-ID-OP                           => SCALA-CONST-ID-OP
+	  CONST-ID-USS                          => SCALA-CONST-ID-USS
+	  CONST-PLAIN-ID                        => SCALA-CONST-PLAIN-ID
 	  CaseBlock                             => ScalaCaseBlock
 	  CaseBlockStatSemi                     => ScalaCaseBlockStatSemi
 	  CaseClause                            => ScalaCaseClause
-	  CharEscapeSeq                         => ScalaCharEscapeSeq
-	  CharNoDoubleQuote                     => ScalaCharNoDoubleQuote
-	  CharacterLiteral                      => ScalaCharacterLiteral
-	  CircumflexOp                          => ScalaCircumflexOp
 	  ClassDef                              => ScalaClassDef
 	  ClassParam                            => ScalaClassParam
 	  ClassParamClause                      => ScalaClassParamClause
@@ -1159,24 +1447,24 @@ imports Scala
 	  ClassQualifier                        => ScalaClassQualifier
 	  ClassTemplate                         => ScalaClassTemplate
 	  ClassTemplateOpt                      => ScalaClassTemplateOpt
-	  ColonOp                               => ScalaColonOp
 	  CompilationUnit                       => ScalaCompilationUnit
 	  CompoundType                          => ScalaCompoundType
 	  Constr                                => ScalaConstr
 	  ConstrAnnotation                      => ScalaConstrAnnotation
 	  ConstrBlock                           => ScalaConstrBlock
 	  ConstrExpr                            => ScalaConstrExpr
+	  DECIMAL-NUMERAL                       => SCALA-DECIMAL-NUMERAL
+	  DIGIT                                 => SCALA-DIGIT
+	  DOUBLE-DOUBLE-QUOTE                   => SCALA-DOUBLE-DOUBLE-QUOTE
+	  DOUBLE-QUOTE                          => SCALA-DOUBLE-QUOTE
 	  Dcl                                   => ScalaDcl
-	  DecimalNumeral                        => ScalaDecimalNumeral
 	  Def                                   => ScalaDef
-	  Digit                                 => ScalaDigit
-	  DoubleDoubleQuote                     => ScalaDoubleDoubleQuote
-	  DoubleQuote                           => ScalaDoubleQuote
-	  EOB                                   => ScalaEOB
-	  EOC                                   => ScalaEOC
-	  EOF                                   => ScalaEOF
-	  EOL                                   => ScalaEOL
-	  EOP                                   => ScalaEOP
+	  EOB                                   => SCALA-EOB
+	  EOC                                   => SCALA-EOC
+	  EOF                                   => SCALA-EOF
+	  EOL                                   => SCALA-EOL
+	  EOP                                   => SCALA-EOP
+	  EXPONENT-PART                         => SCALA-EXPONENT-PART
 	  EarlyDef                              => ScalaEarlyDef
 	  EarlyDefSemi                          => ScalaEarlyDefSemi
 	  EarlyDefs                             => ScalaEarlyDefs
@@ -1185,11 +1473,10 @@ imports Scala
 	  ExistentialClause                     => ScalaExistentialClause
 	  ExistentialDcl                        => ScalaExistentialDcl
 	  ExistentialDclSemi                    => ScalaExistentialDclSemi
-	  ExponentPart                          => ScalaExponentPart
 	  Expr                                  => ScalaExpr
-	  FancyId                               => ScalaFancyId
-	  FloatType                             => ScalaFloatType
-	  FloatingPointLiteral                  => ScalaFloatingPointLiteral
+	  FANCY-ID                              => SCALA-FANCY-ID
+	  FLOAT-TYPE                            => SCALA-FLOAT-TYPE
+	  FLOATING-POINT                        => SCALA-FLOATING-POINT
 	  FunDcl                                => ScalaFunDcl
 	  FunDef                                => ScalaFunDef
 	  FunSig                                => ScalaFunSig
@@ -1197,49 +1484,56 @@ imports Scala
 	  FunctionArgTypes                      => ScalaFunctionArgTypes
 	  Generator                             => ScalaGenerator
 	  Guard                                 => ScalaGuard
-	  HexDigit                              => ScalaHexDigit
-	  HexNumeral                            => ScalaHexNumeral
-	  IMultiLineProcessedStringElement      => ScalaIMultiLineProcessedStringElement
-	  IPlainId                              => ScalaIPlainId
-	  ITypeId                               => ScalaITypeId
-	  ITypeIdOp                             => ScalaITypeIdOp
-	  ITypeIdUSS                            => ScalaITypeIdUSS
-	  ITypePlainId                          => ScalaITypePlainId
-	  IVarId                                => ScalaIVarId
-	  IVarIdOp                              => ScalaIVarIdOp
-	  IVarIdUSS                             => ScalaIVarIdUSS
-	  IVarPlainId                           => ScalaIVarPlainId
+	  HEX-DIGIT                             => SCALA-HEX-DIGIT
+	  HEX-NUMERAL                           => SCALA-HEX-NUMERAL
+	  ICONST-ID                             => SCALA-ICONST-ID
+	  ICONST-ID-OP                          => SCALA-ICONST-ID-OP
+	  ICONST-ID-USS                         => SCALA-ICONST-ID-USS
+	  ICONST-PLAIN-ID                       => SCALA-ICONST-PLAIN-ID
+	  ID-REST                               => SCALA-ID-REST
+	  IMULTI-LINE-PROCESSED-STRING-ELEMENT  => SCALA-IMULTI-LINE-PROCESSED-STRING-ELEMENT
+	  INFIX-PATTERN-OP                      => SCALA-INFIX-PATTERN-OP
+	  INTEGER                               => SCALA-INTEGER
+	  IPLAIN-ID                             => SCALA-IPLAIN-ID
+	  IVAR-ID                               => SCALA-IVAR-ID
+	  IVAR-ID-OP                            => SCALA-IVAR-ID-OP
+	  IVAR-ID-USS                           => SCALA-IVAR-ID-USS
+	  IVAR-PLAIN-ID                         => SCALA-IVAR-PLAIN-ID
 	  Id                                    => ScalaId
-	  IdRest                                => ScalaIdRest
 	  Import                                => ScalaImport
 	  ImportExpr                            => ScalaImportExpr
 	  ImportSelector                        => ScalaImportSelector
 	  ImportSelectors                       => ScalaImportSelectors
-	  InfixPatternOp                        => ScalaInfixPatternOp
 	  InfixType                             => ScalaInfixType
-	  IntegerLiteral                        => ScalaIntegerLiteral
-	  Keyword                               => ScalaKeyword
-	  Letter                                => ScalaLetter
-	  LetterOp                              => ScalaLetterOp
+	  KEYWORD                               => SCALA-KEYWORD
+	  LETTER                                => SCALA-LETTER
+	  LETTER-OP                             => SCALA-LETTER-OP
+	  LOWER                                 => SCALA-LOWER
 	  Literal                               => ScalaLiteral
 	  LocalModifier                         => ScalaLocalModifier
-	  Lower                                 => ScalaLower
 	  LowerBoundType                        => ScalaLowerBoundType
-	  MinusPrefix                           => ScalaMinusPrefix
+	  MINUS-PREFIX                          => SCALA-MINUS-PREFIX
+	  MULT-OP                               => SCALA-MULT-OP
+	  MULTI-LINE-CHARS                      => SCALA-MULTI-LINE-CHARS
+	  MULTI-LINE-PROCESSED-STRING-ELEMENT   => SCALA-MULTI-LINE-PROCESSED-STRING-ELEMENT
 	  Modifier                              => ScalaModifier
 	  Morphism                              => ScalaMorphism
-	  MultOp                                => ScalaMultOp
-	  MultiLineChars                        => ScalaMultiLineChars
-	  MultiLineProcessedStringElement       => ScalaMultiLineProcessedStringElement
-	  Nl                                    => ScalaNl
+	  NL                                    => SCALA-NL
+	  NON-ZERO-DIGIT                        => SCALA-NON-ZERO-DIGIT
 	  NoLExpr                               => ScalaNoLExpr
 	  NoLExprs                              => ScalaNoLExprs
-	  NonZeroDigit                          => ScalaNonZeroDigit
+	  OCTAL-DIGIT                           => SCALA-OCTAL-DIGIT
+	  OCTAL-NUMERAL                         => SCALA-OCTAL-NUMERAL
+	  OP                                    => SCALA-OP
+	  OP-CHAR                               => SCALA-OP-CHAR
 	  ObjectDef                             => ScalaObjectDef
-	  OctalDigit                            => ScalaOctalDigit
-	  OctalNumeral                          => ScalaOctalNumeral
-	  Op                                    => ScalaOp
-	  OpChar                                => ScalaOpChar
+	  PLAIN-ID                              => SCALA-PLAIN-ID
+	  PREFIX                                => SCALA-PREFIX
+	  PRINTABLE                             => SCALA-PRINTABLE
+	  PROCESSED-STRING                      => SCALA-PROCESSED-STRING
+	  PROCESSED-STRING-ELEMENT              => SCALA-PROCESSED-STRING-ELEMENT
+	  PROCESSING                            => SCALA-PROCESSING
+	  PROCESSING-ELEMENT                    => SCALA-PROCESSING-ELEMENT
 	  PackageDeclarationSemi                => ScalaPackageDeclarationSemi
 	  PackageObject                         => ScalaPackageObject
 	  Packaging                             => ScalaPackaging
@@ -1257,31 +1551,34 @@ imports Scala
 	  Pattern2                              => ScalaPattern2
 	  Pattern3                              => ScalaPattern3
 	  Patterns                              => ScalaPatterns
-	  PlainId                               => ScalaPlainId
-	  Prefix                                => ScalaPrefix
-	  PrintableChar                         => ScalaPrintableChar
-	  ProcessedString                       => ScalaProcessedString
-	  ProcessedStringElement                => ScalaProcessedStringElement
-	  Processing                            => ScalaProcessing
-	  ProcessingElement                     => ScalaProcessingElement
 	  QualId                                => ScalaQualId
+	  RASSOC-AMPERSAND-OP                   => SCALA-RASSOC-AMPERSAND-OP
+	  RASSOC-BAR-OP                         => SCALA-RASSOC-BAR-OP
+	  RASSOC-BRACKET-OP                     => SCALA-RASSOC-BRACKET-OP
+	  RASSOC-CIRCUMFLEX-OP                  => SCALA-RASSOC-CIRCUMFLEX-OP
+	  RASSOC-CMPR-OP                        => SCALA-RASSOC-CMPR-OP
+	  RASSOC-COLON-OP                       => SCALA-RASSOC-COLON-OP
+	  RASSOC-LETTER-OP                      => SCALA-RASSOC-LETTER-OP
+	  RASSOC-MULT-OP                        => SCALA-RASSOC-MULT-OP
+	  RASSOC-SPECIAL-OP                     => SCALA-RASSOC-SPECIAL-OP
+	  RASSOC-SUM-OP                         => SCALA-RASSOC-SUM-OP
 	  RefineStat                            => ScalaRefineStat
 	  RefineStatSemi                        => ScalaRefineStatSemi
 	  Refinement                            => ScalaRefinement
 	  ResultExpr                            => ScalaResultExpr
-	  SEMI                                  => ScalaSEMI
+	  SEMI                                  => SCALA-SEMI
+	  SLASH                                 => SCALA-SLASH
+	  SPECIAL-OP                            => SCALA-SPECIAL-OP
+	  STRING                                => SCALA-STRING
+	  STRING-ELEMENT                        => SCALA-STRING-ELEMENT
+	  SUM-OP                                => SCALA-SUM-OP
+	  SYMBOL                                => SCALA-SYMBOL
 	  SelfInvocation                        => ScalaSelfInvocation
 	  SelfType                              => ScalaSelfType
 	  SimplePattern                         => ScalaSimplePattern
 	  SimpleType                            => ScalaSimpleType
-	  Slash                                 => ScalaSlash
-	  SpecialOp                             => ScalaSpecialOp
 	  StableId                              => ScalaStableId
 	  StableIdElem                          => ScalaStableIdElem
-	  StringElement                         => ScalaStringElement
-	  StringLiteral                         => ScalaStringLiteral
-	  SumOp                                 => ScalaSumOp
-	  SymbolLiteral                         => ScalaSymbolLiteral
 	  TemplateBody                          => ScalaTemplateBody
 	  TemplateStat                          => ScalaTemplateStat
 	  TemplateStatSemi                      => ScalaTemplateStatSemi
@@ -1298,24 +1595,20 @@ imports Scala
 	  TypeContextBound                      => ScalaTypeContextBound
 	  TypeDcl                               => ScalaTypeDcl
 	  TypeDef                               => ScalaTypeDef
-	  TypeId                                => ScalaTypeId
-	  TypeIdOp                              => ScalaTypeIdOp
-	  TypeIdUSS                             => ScalaTypeIdUSS
 	  TypeParam                             => ScalaTypeParam
 	  TypeParamClause                       => ScalaTypeParamClause
-	  TypePlainId                           => ScalaTypePlainId
 	  TypeViewBound                         => ScalaTypeViewBound
 	  Typed                                 => ScalaTyped
-	  UnicodeEscape                         => ScalaUnicodeEscape
-	  Upper                                 => ScalaUpper
+	  UNICODE-ESCAPE                        => SCALA-UNICODE-ESCAPE
+	  UPPER                                 => SCALA-UPPER
 	  UpperBoundType                        => ScalaUpperBoundType
+	  VAR-ID                                => SCALA-VAR-ID
+	  VAR-ID-OP                             => SCALA-VAR-ID-OP
+	  VAR-ID-USS                            => SCALA-VAR-ID-USS
+	  VAR-PLAIN-ID                          => SCALA-VAR-PLAIN-ID
 	  ValDcl                                => ScalaValDcl
 	  VarDcl                                => ScalaVarDcl
 	  VarDef                                => ScalaVarDef
-	  VarId                                 => ScalaVarId
-	  VarIdOp                               => ScalaVarIdOp
-	  VarIdUSS                              => ScalaVarIdUSS
-	  VarPlainId                            => ScalaVarPlainId
 	  VariantTypeParam                      => ScalaVariantTypeParam
 	  With                                  => ScalaWith
 	  WithAnnotType                         => ScalaWithAnnotType ]
